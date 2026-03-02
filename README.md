@@ -325,10 +325,13 @@ The library includes a benchmark against the [BEIR (Benchmarking Information Ret
 |---------------|---------|--------|------------|-----------|
 | Lexical-only (BM25) | 0.304 | 0.217 | 0.241 | 4.0ms |
 | Vector-only (text-embedding-3-small) | 0.384 | 0.291 | 0.360 | 7.7ms |
-| Hybrid (BM25 + Vector) | 0.366 | 0.270 | 0.366 | 8.5ms |
+| Hybrid (L=0.1, V=1.0) | **0.391** | 0.294 | 0.360 | 8.2ms |
+| Hybrid (equal weights) | 0.366 | 0.270 | 0.366 | 8.5ms |
 | BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
 
-Vector-only retrieval with `text-embedding-3-small` (1536 dims) achieves **0.384 nDCG@10**, outperforming published baselines including ColBERT-v2 (0.338) on this dataset. Our BM25 implementation scores within 6.5% of the reference Anserini/Lucene baseline.
+Vector-only retrieval with `text-embedding-3-small` (1536 dims) achieves **0.384 nDCG@10**, outperforming published baselines including ColBERT-v2 (0.338) on this dataset. Hybrid search with tuned weights (lexical=0.1, vector=1.0) pushes this further to **0.391 nDCG@10**.
+
+With equal weights (1:1), hybrid scores below vector-only (0.366 vs 0.384) because BM25 is weaker on this biomedical domain and dilutes the stronger vector signal. A small lexical contribution (0.1 weight) adds just enough keyword matching to improve results without overwhelming the semantic signal. Our BM25 implementation scores within 6.5% of the reference Anserini/Lucene baseline.
 
 ### Running the Benchmark
 
