@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-Generate embeddings for BEIR NFCorpus dataset and save in HybridSearch binary cache format.
+Generate embeddings for BEIR NFCorpus dataset using Azure OpenAI and save in HybridSearch binary cache format.
 
 Produces a .bin file compatible with HybridSearch.Benchmarks EmbeddingCache.
 
 Usage:
-    pip install sentence-transformers
+    pip install openai azure-identity
     python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output embeddings.bin
+
+Environment variables:
+    HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT    Azure OpenAI endpoint URL (e.g. https://myresource.openai.azure.com/)
+    HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT  Deployment name for the embedding model (default: text-embedding-3-small)
+
+Authentication uses DefaultAzureCredential (Azure CLI, managed identity, etc.).
 
 The binary format matches C# BinaryWriter conventions:
     [count:int32]
@@ -20,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import struct
 import sys
 import time
@@ -42,7 +49,7 @@ def write_dotnet_string(f, s: str) -> None:
 
 
 def load_corpus(path: Path) -> dict[str, tuple[str, str]]:
-    """Load BEIR corpus.jsonl → {id: (title, text)}."""
+    """Load BEIR corpus.jsonl -> {id: (title, text)}."""
     corpus = {}
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
@@ -56,7 +63,7 @@ def load_corpus(path: Path) -> dict[str, tuple[str, str]]:
 
 
 def load_queries(path: Path) -> dict[str, str]:
-    """Load BEIR queries.jsonl → {id: text}."""
+    """Load BEIR queries.jsonl -> {id: text}."""
     queries = {}
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
@@ -82,9 +89,54 @@ def save_embedding_cache(
     print(f"Saved {len(embeddings)} embeddings to {path}", file=sys.stderr)
 
 
+def embed_batch(client, deployment: str, texts: list[str]) -> list[list[float]]:
+    """Call Azure OpenAI embeddings API for a batch of texts."""
+    response = client.embeddings.create(model=deployment, input=texts)
+    # Results may not be in input order — sort by index
+    sorted_data = sorted(response.data, key=lambda x: x.index)
+    return [item.embedding for item in sorted_data]
+
+
+def embed_all(
+    client,
+    deployment: str,
+    ids: list[str],
+    texts: list[str],
+    batch_size: int,
+    label: str,
+) -> dict[str, list[float]]:
+    """Embed a list of texts in batches with progress reporting."""
+    embeddings: dict[str, list[float]] = {}
+    total = len(texts)
+
+    print(f"Encoding {total} {label}...", file=sys.stderr)
+    t0 = time.time()
+
+    for i in range(0, total, batch_size):
+        batch_ids = ids[i : i + batch_size]
+        batch_texts = texts[i : i + batch_size]
+
+        vectors = embed_batch(client, deployment, batch_texts)
+
+        for doc_id, vec in zip(batch_ids, vectors):
+            embeddings[doc_id] = vec
+
+        done = min(i + batch_size, total)
+        elapsed = time.time() - t0
+        rate = done / elapsed if elapsed > 0 else 0
+        print(
+            f"  [{done}/{total}] {rate:.0f} items/s",
+            file=sys.stderr,
+        )
+
+    t1 = time.time()
+    print(f"{label.capitalize()} encoded in {t1 - t0:.1f}s", file=sys.stderr)
+    return embeddings
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate embeddings for BEIR NFCorpus in HybridSearch binary format."
+        description="Generate embeddings for BEIR NFCorpus using Azure OpenAI (AAD auth)."
     )
     parser.add_argument(
         "--data-dir",
@@ -97,17 +149,34 @@ def main() -> None:
         help="Output binary cache path (default: embeddings.bin).",
     )
     parser.add_argument(
-        "--model",
-        default="all-MiniLM-L6-v2",
-        help="Sentence-transformers model name (default: all-MiniLM-L6-v2, 384 dims).",
+        "--deployment",
+        default=None,
+        help="Azure OpenAI deployment name (default: env HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT or 'text-embedding-3-small').",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
         default=256,
-        help="Encoding batch size (default: 256).",
+        help="Texts per API call (default: 256, max 2048).",
     )
     args = parser.parse_args()
+
+    if args.batch_size < 1 or args.batch_size > 2048:
+        print("Error: --batch-size must be between 1 and 2048.", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve Azure OpenAI config
+    endpoint = os.environ.get("HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT")
+    if not endpoint:
+        print(
+            "Error: set HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT environment variable.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    deployment = args.deployment or os.environ.get(
+        "HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT", "text-embedding-3-small"
+    )
 
     data_dir = Path(args.data_dir)
     if not data_dir.exists():
@@ -123,24 +192,44 @@ def main() -> None:
         )
         sys.exit(1)
 
-    # Import here so --help works without sentence-transformers installed
+    # Import here so --help works without packages installed
     try:
-        from sentence_transformers import SentenceTransformer
+        from openai import AzureOpenAI
     except ImportError:
         print(
-            "Error: sentence-transformers not installed.\n"
-            "  pip install sentence-transformers",
+            "Error: openai package not installed.\n"
+            "  pip install openai azure-identity",
             file=sys.stderr,
         )
         sys.exit(1)
 
+    try:
+        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    except ImportError:
+        print(
+            "Error: azure-identity package not installed.\n"
+            "  pip install azure-identity",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Create client with AAD auth
+    token_provider = get_bearer_token_provider(
+        DefaultAzureCredential(),
+        "https://cognitiveservices.azure.com/.default",
+    )
+
+    client = AzureOpenAI(
+        azure_endpoint=endpoint,
+        azure_ad_token_provider=token_provider,
+        api_version="2024-06-01",
+    )
+
+    print(f"Azure OpenAI endpoint: {endpoint}", file=sys.stderr)
+    print(f"Deployment: {deployment}", file=sys.stderr)
+
     corpus = load_corpus(corpus_path)
     queries = load_queries(queries_path)
-
-    print(f"Loading model: {args.model}", file=sys.stderr)
-    model = SentenceTransformer(args.model)
-    dim = model.get_sentence_embedding_dimension()
-    print(f"Model loaded: {dim} dimensions", file=sys.stderr)
 
     # Embed corpus: title + " " + text
     corpus_ids = list(corpus.keys())
@@ -148,42 +237,24 @@ def main() -> None:
         f"{title} {text}".strip() for title, text in corpus.values()
     ]
 
-    print(f"Encoding {len(corpus_texts)} corpus documents...", file=sys.stderr)
-    t0 = time.time()
-    corpus_vectors = model.encode(
-        corpus_texts,
-        batch_size=args.batch_size,
-        show_progress_bar=True,
-        normalize_embeddings=True,
+    all_embeddings = embed_all(
+        client, deployment, corpus_ids, corpus_texts, args.batch_size, "corpus documents"
     )
-    t1 = time.time()
-    print(f"Corpus encoded in {t1 - t0:.1f}s", file=sys.stderr)
 
     # Embed queries
     query_ids = list(queries.keys())
     query_texts = list(queries.values())
 
-    print(f"Encoding {len(query_texts)} queries...", file=sys.stderr)
-    t0 = time.time()
-    query_vectors = model.encode(
-        query_texts,
-        batch_size=args.batch_size,
-        show_progress_bar=True,
-        normalize_embeddings=True,
+    query_embeddings = embed_all(
+        client, deployment, query_ids, query_texts, args.batch_size, "queries"
     )
-    t1 = time.time()
-    print(f"Queries encoded in {t1 - t0:.1f}s", file=sys.stderr)
 
-    # Merge into single dict
-    all_embeddings: dict[str, list[float]] = {}
-    for doc_id, vec in zip(corpus_ids, corpus_vectors):
-        all_embeddings[doc_id] = vec.tolist()
-    for query_id, vec in zip(query_ids, query_vectors):
-        all_embeddings[query_id] = vec.tolist()
+    all_embeddings.update(query_embeddings)
 
+    dim = len(next(iter(all_embeddings.values())))
     print(
         f"Total: {len(all_embeddings)} embeddings "
-        f"({len(corpus_ids)} docs + {len(query_ids)} queries)",
+        f"({len(corpus_ids)} docs + {len(query_ids)} queries, {dim} dims)",
         file=sys.stderr,
     )
 

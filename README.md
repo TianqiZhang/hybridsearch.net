@@ -253,7 +253,7 @@ benchmarks/
   HybridSearch.Benchmarks/          BEIR NFCorpus evaluation console app
 
 tools/
-  generate_embeddings.py             Embedding generation script (sentence-transformers)
+  generate_embeddings.py             Embedding generation script (Azure OpenAI)
 ```
 
 ## Building and testing
@@ -323,10 +323,12 @@ The library includes a benchmark against the [BEIR (Benchmarking Information Ret
 
 | Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
 |---------------|---------|--------|------------|-----------|
-| Lexical-only (BM25) | 0.304 | 0.217 | 0.241 | 4.2ms |
+| Lexical-only (BM25) | 0.304 | 0.217 | 0.241 | 4.0ms |
+| Vector-only (text-embedding-3-small) | 0.384 | 0.291 | 0.360 | 7.7ms |
+| Hybrid (BM25 + Vector) | 0.366 | 0.270 | 0.366 | 8.5ms |
 | BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
 
-Our BM25 implementation scores within 6.5% of the reference Anserini/Lucene baseline. Differences come from analyzer configuration and scoring parameters.
+Vector-only retrieval with `text-embedding-3-small` (1536 dims) achieves **0.384 nDCG@10**, outperforming published baselines including ColBERT-v2 (0.338) on this dataset. Our BM25 implementation scores within 6.5% of the reference Anserini/Lucene baseline.
 
 ### Running the Benchmark
 
@@ -343,11 +345,13 @@ dotnet run --project benchmarks/HybridSearch.Benchmarks -- --embeddings ./embedd
 To run vector-only and hybrid benchmarks, pre-compute embeddings with the included Python script:
 
 ```bash
-pip install sentence-transformers
+pip install openai azure-identity
 python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output embeddings.bin
 ```
 
-This encodes all 3,633 documents and 323 queries using `all-MiniLM-L6-v2` (384 dims) and saves them in the binary cache format. Then re-run the benchmark with `--embeddings embeddings.bin`.
+Set `HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT` to your Azure OpenAI endpoint. Authentication uses `DefaultAzureCredential` (Azure CLI, managed identity, etc.). Optionally set `HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT` (defaults to `text-embedding-3-small`).
+
+This encodes all 3,633 documents and 323 queries using `text-embedding-3-small` (1536 dims) and saves them in the binary cache format. Then re-run the benchmark with `--embeddings embeddings.bin`.
 
 The benchmark parses BEIR files (`corpus.jsonl`, `queries.jsonl`, `qrels/test.tsv`), evaluates lexical/vector/hybrid retrieval, and reports nDCG@10, MAP@10, and Recall@100.
 
