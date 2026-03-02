@@ -53,3 +53,9 @@ desktop.ini
 ## Environment
 .env
 *.env.local
+
+# Benchmark data (downloaded at runtime)
+benchmarks/data/
+
+# Embedding cache files (large binary, generated locally)
+*.bin

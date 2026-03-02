@@ -248,6 +248,12 @@ src/
 tests/
   HybridSearch.Tests/              Unit tests (185 tests)
   HybridSearch.IntegrationTests/   CLI integration tests (5 tests)
+
+benchmarks/
+  HybridSearch.Benchmarks/          BEIR NFCorpus evaluation console app
+
+tools/
+  generate_embeddings.py             Embedding generation script (sentence-transformers)
 ```
 
 ## Building and testing
@@ -306,6 +312,44 @@ Benchmarked on 3,000 documents with 768-dimensional embeddings (matching `text-e
 | Explain overhead | < 2x base query |
 
 These are informational benchmarks, not hard SLAs. Actual performance depends on hardware, document size, and embedding dimensions.
+
+## BEIR NFCorpus Benchmark
+
+The library includes a benchmark against the [BEIR (Benchmarking Information Retrieval)](https://github.com/beir-cellar/beir) NFCorpus dataset to validate retrieval quality.
+
+**NFCorpus** is a biomedical information retrieval dataset with 3,633 PubMed articles and 323 test queries with graded relevance (0/1/2).
+
+### Results
+
+| Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
+|---------------|---------|--------|------------|-----------|
+| Lexical-only (BM25) | 0.304 | 0.217 | 0.241 | 4.2ms |
+| BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
+
+Our BM25 implementation scores within 6.5% of the reference Anserini/Lucene baseline. Differences come from analyzer configuration and scoring parameters.
+
+### Running the Benchmark
+
+```bash
+# Run benchmark (auto-downloads NFCorpus on first run)
+dotnet run --project benchmarks/HybridSearch.Benchmarks
+
+# Run with precomputed embeddings (enables vector-only and hybrid modes)
+dotnet run --project benchmarks/HybridSearch.Benchmarks -- --embeddings ./embeddings.bin
+```
+
+### Generating Embeddings
+
+To run vector-only and hybrid benchmarks, pre-compute embeddings with the included Python script:
+
+```bash
+pip install sentence-transformers
+python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output embeddings.bin
+```
+
+This encodes all 3,633 documents and 323 queries using `all-MiniLM-L6-v2` (384 dims) and saves them in the binary cache format. Then re-run the benchmark with `--embeddings embeddings.bin`.
+
+The benchmark parses BEIR files (`corpus.jsonl`, `queries.jsonl`, `qrels/test.tsv`), evaluates lexical/vector/hybrid retrieval, and reports nDCG@10, MAP@10, and Recall@100.
 
 ## Roadmap
 

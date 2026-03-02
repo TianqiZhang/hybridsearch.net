@@ -8,4 +8,7 @@
     <Project Path="tests/HybridSearch.IntegrationTests/HybridSearch.IntegrationTests.csproj" />
     <Project Path="tests/HybridSearch.Tests/HybridSearch.Tests.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/HybridSearch.Benchmarks/HybridSearch.Benchmarks.csproj" />
+  </Folder>
 </Solution>
