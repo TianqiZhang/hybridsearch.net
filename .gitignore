@@ -11,6 +11,8 @@ obj/
 **/[Pp]ackages/*
 !**/[Pp]ackages/build/
 *.nupkg
+*.snupkg
+nupkg/
 **/[Pp]ackages/*.lock.json
 
 ## Build results

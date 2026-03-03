@@ -1,5 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>HybridSearch.AzureOpenAI</PackageId>
+    <Description>Azure OpenAI embedding provider for HybridSearch.NET. Provides IEmbeddingProvider implementation using Azure OpenAI text-embedding models for automatic document and query embedding.</Description>
+    <PackageTags>hybrid-search;azure;openai;embeddings;azure-openai;embedding-provider</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
   </ItemGroup>

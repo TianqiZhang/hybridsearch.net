@@ -1,9 +1,32 @@
 <Project>
   <PropertyGroup>
+    <!-- Build settings -->
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Package version (shared across all packable projects) -->
+    <Version>0.1.0-preview.1</Version>
+
+    <!-- NuGet shared metadata -->
+    <Authors>Tianqi Zhang</Authors>
+    <Copyright>Copyright (c) Tianqi Zhang</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/TianqiZhang/hybridsearch.net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TianqiZhang/hybridsearch.net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- SourceLink (built-in for .NET 8 SDK + GitHub) -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Default: projects don't produce NuGet packages unless explicitly set -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 </Project>

@@ -1,5 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>HybridSearch</PackageId>
+    <Description>In-process, in-memory hybrid retrieval library for .NET. Combines BM25 lexical search (Lucene.NET), vector similarity search, and Reciprocal Rank Fusion (RRF) to search small local document corpora without external infrastructure.</Description>
+    <PackageTags>hybrid-search;search;lucene;vector-search;semantic-search;rrf;fusion;embeddings;bm25;rag;information-retrieval</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Lucene.Net" Version="4.8.0-beta00016" />
     <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00016" />

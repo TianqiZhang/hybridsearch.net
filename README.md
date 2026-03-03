@@ -28,6 +28,19 @@ Designed for corpora up to ~10k documents. If you need large-scale distributed s
 - **CLI tool** -- `hybridsearch query <folder> --text "..."` for quick searches from the terminal
 - **Zero external dependencies at runtime** -- everything runs in-process (Lucene.NET for lexical, managed code for vector)
 
+## Installation
+
+```shell
+dotnet add package HybridSearch --prerelease
+```
+
+For Azure OpenAI embeddings support:
+
+```shell
+dotnet add package HybridSearch.AzureOpenAI --prerelease
+```
+
+
 ## Quick start
 
 ### Library usage
@@ -341,7 +354,7 @@ This library follows a phased development plan:
 | **Phase 0** | Done | Foundation: models, interfaces, project scaffold |
 | **Phase 1** | Done | MVP hybrid retrieval, CLI, Azure OpenAI provider |
 | **Phase 2** | Done | Incremental updates (upsert/delete/commit), fielded search with boosts, metadata filters, query timing breakdown |
-| Phase 3 | Planned | Snapshot export/import, document chunking |
+| Phase 3 | Planned | Snapshot export/import |
 | Phase 4 | Planned | Approximate nearest neighbor (ANN) for larger corpora |
 
 ## Dependencies
@@ -354,4 +367,4 @@ This library follows a phased development plan:
 
 ## License
 
-MIT
+[MIT](LICENSE)
