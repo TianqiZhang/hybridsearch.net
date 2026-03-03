@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Retrievo.AzureOpenAI/Retrievo.AzureOpenAI.csproj" />
+    <Project Path="src/Retrievo.Cli/Retrievo.Cli.csproj" />
+    <Project Path="src/Retrievo/Retrievo.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Retrievo.IntegrationTests/Retrievo.IntegrationTests.csproj" />
+    <Project Path="tests/Retrievo.Tests/Retrievo.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Retrievo.Benchmarks/Retrievo.Benchmarks.csproj" />
+  </Folder>
+</Solution>

@@ -1,6 +1,6 @@
 # BEIR Benchmarks
 
-Evaluation of HybridSearch.NET retrieval quality against [BEIR (Benchmarking Information Retrieval)](https://github.com/beir-cellar/beir) datasets.
+Evaluation of Retrievo retrieval quality against [BEIR (Benchmarking Information Retrieval)](https://github.com/beir-cellar/beir) datasets.
 
 ## Supported Datasets
 
@@ -20,16 +20,16 @@ Any BEIR dataset ID can be used — the tool downloads from the BEIR CDN automat
 
 ```bash
 # Run NFCorpus benchmark (default, auto-downloads on first run)
-dotnet run --project benchmarks/HybridSearch.Benchmarks
+dotnet run --project benchmarks/Retrievo.Benchmarks
 
 # Run SciFact benchmark
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact
+dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset scifact
 
 # Run with precomputed embeddings (enables vector-only and hybrid modes)
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact --embeddings scifact-embeddings.bin
+dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset scifact --embeddings scifact-embeddings.bin
 
 # List all available datasets
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --list-datasets
+dotnet run --project benchmarks/Retrievo.Benchmarks -- --list-datasets
 ```
 
 ### CLI Options
@@ -57,7 +57,7 @@ python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output
 python tools/generate_embeddings.py --data-dir benchmarks/data/scifact --output scifact-embeddings.bin
 ```
 
-Set `HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT` to your Azure OpenAI endpoint. Authentication uses `DefaultAzureCredential` (Azure CLI, managed identity, etc.). Optionally set `HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT` (defaults to `text-embedding-3-small`).
+Set `RETRIEVO_AZURE_OPENAI_ENDPOINT` to your Azure OpenAI endpoint. Authentication uses `DefaultAzureCredential` (Azure CLI, managed identity, etc.). Optionally set `RETRIEVO_AZURE_OPENAI_DEPLOYMENT` (defaults to `text-embedding-3-small`).
 
 The script encodes all documents and queries using the specified model and saves them in the binary cache format. Then re-run the benchmark with `--embeddings <path>`.
 
@@ -107,10 +107,10 @@ The `--sweep` flag runs a grid search over 245 configurations per dataset:
 
 ```bash
 # Hybrid sweep (requires embeddings)
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset nfcorpus --embeddings embeddings.bin --sweep
+dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset nfcorpus --embeddings embeddings.bin --sweep
 
 # Lexical-only sweep (no embeddings needed)
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact --sweep
+dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset scifact --sweep
 ```
 
 ### Analysis
@@ -149,7 +149,7 @@ Our BM25 implementation matches the reference Anserini/Lucene baseline (0.325 nD
 
 ## How It Works
 
-The benchmark parses standard BEIR files (`corpus.jsonl`, `queries.jsonl`, `qrels/test.tsv`), builds a HybridSearch index from the corpus, runs all test queries, and computes:
+The benchmark parses standard BEIR files (`corpus.jsonl`, `queries.jsonl`, `qrels/test.tsv`), builds a Retrievo index from the corpus, runs all test queries, and computes:
 
 - **nDCG@10** — normalized discounted cumulative gain at rank 10
 - **MAP@10** — mean average precision at rank 10

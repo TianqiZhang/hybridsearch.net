@@ -1,4 +1,4 @@
-# HybridSearch.NET
+# Retrievo
 
 An open-source, in-process, in-memory **hybrid retrieval** library for .NET. Combines BM25 lexical search, vector similarity search, and [Reciprocal Rank Fusion (RRF)](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) to search small local document corpora without running external infrastructure.
 
@@ -25,19 +25,19 @@ Designed for corpora up to ~10k documents. If you need large-scale distributed s
 - **Auto-embedding** -- documents without pre-computed embeddings are embedded automatically at build time
 - **SIMD-accelerated** -- brute-force vector search uses hardware intrinsics where available
 - **Thread-safe reads** -- built indexes are safe for concurrent queries
-- **CLI tool** -- `hybridsearch query <folder> --text "..."` for quick searches from the terminal
+- **CLI tool** -- `retrievo query <folder> --text "..."` for quick searches from the terminal
 - **Zero external dependencies at runtime** -- everything runs in-process (Lucene.NET for lexical, managed code for vector)
 
 ## Installation
 
 ```shell
-dotnet add package HybridSearch --prerelease
+dotnet add package Retrievo --prerelease
 ```
 
 For Azure OpenAI embeddings support:
 
 ```shell
-dotnet add package HybridSearch.AzureOpenAI --prerelease
+dotnet add package Retrievo.AzureOpenAI --prerelease
 ```
 
 
@@ -46,8 +46,8 @@ dotnet add package HybridSearch.AzureOpenAI --prerelease
 ### Library usage
 
 ```csharp
-using HybridSearch;
-using HybridSearch.Models;
+using Retrievo;
+using Retrievo.Models;
 
 // Build an index from documents
 var index = new HybridSearchIndexBuilder()
@@ -92,7 +92,7 @@ var response = index.Search(new HybridQuery { Text = "deployment guide" });
 ### With Azure OpenAI embeddings
 
 ```csharp
-using HybridSearch.AzureOpenAI;
+using Retrievo.AzureOpenAI;
 
 var provider = new AzureOpenAIEmbeddingProvider(
     endpoint: new Uri("https://your-resource.openai.azure.com/"),
@@ -156,7 +156,7 @@ var response = index.Search(new HybridQuery
 The CLI tool provides a quick way to search local document folders from the terminal.
 
 ```
-dotnet run --project src/HybridSearch.Cli -- query <folder> --text "search terms" [options]
+dotnet run --project src/Retrievo.Cli -- query <folder> --text "search terms" [options]
 ```
 
 ### Options
@@ -172,16 +172,16 @@ dotnet run --project src/HybridSearch.Cli -- query <folder> --text "search terms
 
 ```bash
 # Lexical-only search (no embedding provider configured)
-dotnet run --project src/HybridSearch.Cli -- query ./docs --text "deployment guide"
+dotnet run --project src/Retrievo.Cli -- query ./docs --text "deployment guide"
 
 # With score breakdown
-dotnet run --project src/HybridSearch.Cli -- query ./docs --text "neural networks" --explain -k 5
+dotnet run --project src/Retrievo.Cli -- query ./docs --text "neural networks" --explain -k 5
 
 # With Azure OpenAI embeddings (set env vars first)
-export HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
-export HYBRIDSEARCH_AZURE_OPENAI_KEY="your-api-key"
-export HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT="text-embedding-3-small"
-dotnet run --project src/HybridSearch.Cli -- query ./docs --text "deployment guide"
+export RETRIEVO_AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export RETRIEVO_AZURE_OPENAI_KEY="your-api-key"
+export RETRIEVO_AZURE_OPENAI_DEPLOYMENT="text-embedding-3-small"
+dotnet run --project src/Retrievo.Cli -- query ./docs --text "deployment guide"
 ```
 
 ### Sample output
@@ -244,7 +244,7 @@ Where `k` is a constant (default 20) and `rank` is the document's 1-based positi
 
 ```
 src/
-  HybridSearch/                    Core library
+  Retrievo/                        Core library
     Models/                        Document, HybridQuery, SearchResult, ExplainDetails, QueryTimingBreakdown
     Abstractions/                  IHybridSearchIndex, IMutableHybridSearchIndex, IEmbeddingProvider, IFuser, ...
     Fusion/                        RRF fusion implementation
@@ -255,18 +255,18 @@ src/
     MutableHybridSearchIndex.cs    Mutable orchestrator with upsert/delete/commit
     MutableHybridSearchIndexBuilder.cs  Builder for mutable indexes
 
-  HybridSearch.AzureOpenAI/        Azure OpenAI embedding provider
-  HybridSearch.Cli/                CLI tool (System.CommandLine)
+  Retrievo.AzureOpenAI/            Azure OpenAI embedding provider
+  Retrievo.Cli/                    CLI tool (System.CommandLine)
 
 tests/
-  HybridSearch.Tests/              Unit tests (185 tests)
-  HybridSearch.IntegrationTests/   CLI integration tests (5 tests)
+  Retrievo.Tests/                  Unit tests (185 tests)
+  Retrievo.IntegrationTests/       CLI integration tests (5 tests)
 
 benchmarks/
-  HybridSearch.Benchmarks/          BEIR evaluation console app (multi-dataset)
+  Retrievo.Benchmarks/             BEIR evaluation console app (multi-dataset)
 
 tools/
-  generate_embeddings.py             Embedding generation script (Azure OpenAI)
+  generate_embeddings.py           Embedding generation script (Azure OpenAI)
 ```
 
 ## Building and testing
@@ -282,10 +282,10 @@ dotnet build
 dotnet test
 
 # Run only unit tests
-dotnet test tests/HybridSearch.Tests
+dotnet test tests/Retrievo.Tests
 
 # Run only integration tests (includes CLI smoke tests)
-dotnet test tests/HybridSearch.IntegrationTests
+dotnet test tests/Retrievo.IntegrationTests
 ```
 
 ## Test coverage
@@ -340,7 +340,7 @@ Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.
 The benchmark runner supports multiple BEIR datasets with `--sweep` for grid search:
 
 ```bash
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact --embeddings scifact-embeddings.bin --sweep
+dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset scifact --embeddings scifact-embeddings.bin --sweep
 ```
 
 See [benchmarks/README.md](benchmarks/README.md) for full results, sweep methodology, and analysis.
@@ -362,8 +362,8 @@ This library follows a phased development plan:
 | Package | Version | Purpose |
 |---------|---------|---------|
 | [Lucene.NET](https://github.com/apache/lucenenet) | 4.8.0-beta00016 | BM25 lexical search (planned for replacement with lighter-weight implementation) |
-| [Azure.AI.OpenAI](https://www.nuget.org/packages/Azure.AI.OpenAI) | 2.1.0 | Azure OpenAI embeddings (optional, in `HybridSearch.AzureOpenAI`) |
-| [System.CommandLine](https://github.com/dotnet/command-line-api) | 2.0.0-beta4 | CLI argument parsing (in `HybridSearch.Cli`) |
+| [Azure.AI.OpenAI](https://www.nuget.org/packages/Azure.AI.OpenAI) | 2.1.0 | Azure OpenAI embeddings (optional, in `Retrievo.AzureOpenAI`) |
+| [System.CommandLine](https://github.com/dotnet/command-line-api) | 2.0.0-beta4 | CLI argument parsing (in `Retrievo.Cli`) |
 
 ## License
 

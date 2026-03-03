@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Generate embeddings for a BEIR dataset using Azure OpenAI and save in HybridSearch binary cache format.
+Generate embeddings for a BEIR dataset using Azure OpenAI and save in Retrievo binary cache format.
 
-Produces a .bin file compatible with HybridSearch.Benchmarks EmbeddingCache.
+Produces a .bin file compatible with Retrievo.Benchmarks EmbeddingCache.
 
 Usage:
     pip install openai azure-identity
@@ -10,8 +10,8 @@ Usage:
     python tools/generate_embeddings.py --data-dir benchmarks/data/scifact --output scifact-embeddings.bin
 
 Environment variables:
-    HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT    Azure OpenAI endpoint URL (e.g. https://myresource.openai.azure.com/)
-    HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT  Deployment name for the embedding model (default: text-embedding-3-small)
+    RETRIEVO_AZURE_OPENAI_ENDPOINT    Azure OpenAI endpoint URL (e.g. https://myresource.openai.azure.com/)
+    RETRIEVO_AZURE_OPENAI_DEPLOYMENT  Deployment name for the embedding model (default: text-embedding-3-small)
 
 Authentication uses DefaultAzureCredential (Azure CLI, managed identity, etc.).
 
@@ -80,7 +80,7 @@ def load_queries(path: Path) -> dict[str, str]:
 def save_embedding_cache(
     path: Path, embeddings: dict[str, list[float]]
 ) -> None:
-    """Save embeddings in HybridSearch EmbeddingCache binary format."""
+    """Save embeddings in Retrievo EmbeddingCache binary format."""
     with open(path, "wb") as f:
         f.write(struct.pack("<i", len(embeddings)))
         for doc_id, vector in embeddings.items():
@@ -152,7 +152,7 @@ def main() -> None:
     parser.add_argument(
         "--deployment",
         default=None,
-        help="Azure OpenAI deployment name (default: env HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT or 'text-embedding-3-small').",
+        help="Azure OpenAI deployment name (default: env RETRIEVO_AZURE_OPENAI_DEPLOYMENT or 'text-embedding-3-small').",
     )
     parser.add_argument(
         "--batch-size",
@@ -167,16 +167,16 @@ def main() -> None:
         sys.exit(1)
 
     # Resolve Azure OpenAI config
-    endpoint = os.environ.get("HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT")
+    endpoint = os.environ.get("RETRIEVO_AZURE_OPENAI_ENDPOINT")
     if not endpoint:
         print(
-            "Error: set HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT environment variable.",
+            "Error: set RETRIEVO_AZURE_OPENAI_ENDPOINT environment variable.",
             file=sys.stderr,
         )
         sys.exit(1)
 
     deployment = args.deployment or os.environ.get(
-        "HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT", "text-embedding-3-small"
+        "RETRIEVO_AZURE_OPENAI_DEPLOYMENT", "text-embedding-3-small"
     )
 
     data_dir = Path(args.data_dir)

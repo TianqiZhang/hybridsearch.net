@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Retrievo.AzureOpenAI</PackageId>
+    <Description>Azure OpenAI embedding provider for Retrievo. Provides IEmbeddingProvider implementation using Azure OpenAI text-embedding models for automatic document and query embedding.</Description>
+    <PackageTags>retrievo;azure;openai;embeddings;azure-openai;embedding-provider</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Retrievo\Retrievo.csproj" />
+  </ItemGroup>
+
+</Project>

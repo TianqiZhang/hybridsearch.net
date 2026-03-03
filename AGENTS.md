@@ -1,4 +1,4 @@
-# AGENTS.md — HybridSearch.NET
+# AGENTS.md — Retrievo
 
 > Knowledge base for AI agents. Read this before making changes. See README.md for project overview, build commands, CLI reference, and dependencies.
 
@@ -19,9 +19,9 @@ Before committing any change, ask a **specialized code review expert agent** to 
 
 ### Namespaces
 
-Folder maps directly to namespace: `HybridSearch`, `HybridSearch.Abstractions`, `HybridSearch.Models`, `HybridSearch.Lexical`, `HybridSearch.Vector`, `HybridSearch.Fusion`.
+Folder maps directly to namespace: `Retrievo`, `Retrievo.Abstractions`, `Retrievo.Models`, `Retrievo.Lexical`, `Retrievo.Vector`, `Retrievo.Fusion`.
 
-Use file-scoped namespace declarations: `namespace HybridSearch;`
+Use file-scoped namespace declarations: `namespace Retrievo;`
 
 ### Types
 
