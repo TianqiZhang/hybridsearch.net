@@ -130,7 +130,7 @@ static void RunStandard(
             TopK = 10,
             LexicalK = 100,
             VectorK = 100,
-            LexicalWeight = 1f,
+            LexicalWeight = 0.5f,
             VectorWeight = 1f,
             RecallAtK = 100
         }));

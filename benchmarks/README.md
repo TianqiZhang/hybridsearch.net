@@ -73,7 +73,7 @@ Biomedical IR — 3,633 PubMed articles, 323 test queries, graded relevance (0/1
 |---------------|---------|--------|------------|-----------|
 | Lexical-only (BM25) | 0.325 | 0.239 | 0.250 | 2.6ms |
 | Vector-only | 0.384 | 0.291 | 0.360 | 7.3ms |
-| Hybrid (default weights) | 0.374 | 0.278 | 0.358 | 8.1ms |
+| Hybrid (default weights) | 0.392 | 0.293 | 0.368 | 8.0ms |
 | **Hybrid (tuned)** | **0.392** | 0.295 | 0.362 | 8.0ms |
 | BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
 
@@ -88,7 +88,7 @@ Scientific claim verification — 5,183 abstracts, 300 test queries, binary rele
 | Lexical-only (BM25) | 0.665 | 0.617 | 0.908 | 2.9ms |
 | Lexical-only (BM25, TitleBoost=0.5) | 0.685 | 0.639 | 0.922 | 2.9ms |
 | Vector-only | 0.731 | 0.687 | 0.973 | 8.5ms |
-| Hybrid (default weights) | 0.731 | 0.686 | 0.977 | 10.4ms |
+| Hybrid (default weights) | 0.756 | 0.709 | 0.983 | 10.3ms |
 | **Hybrid (tuned)** | **0.757** | 0.709 | 0.983 | 10.3ms |
 | BEIR BM25 baseline (Anserini MF) | 0.679 | — | — | — |
 
@@ -124,6 +124,20 @@ dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact --s
 3. **Vector retrieval dominates** — Both datasets benefit from higher vector weight relative to lexical weight. Pure equal weights (L=1, V=1) underperform tuned ratios.
 
 4. **Top configs are tightly clustered** — The top ~20 configs on each dataset are within 0.002-0.003 nDCG@10 of the best, indicating robustness to exact parameter choices within the optimal region.
+
+#### Balanced Default Config
+
+Cross-dataset harmonic mean optimization across both sweep datasets identified `LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.5` as the best universal default:
+
+| Config | NFCorpus nDCG@10 | SciFact nDCG@10 | Harmonic Mean |
+|--------|-----------------|-----------------|---------------|
+| **L=0.5 V=1.0 k=20 tb=0.5** | **0.392** | **0.756** | **0.516** |
+| L=0.3 V=0.5 k=1 tb=0.5 | 0.392 | 0.754 | 0.516 |
+| L=0.3 V=1.0 k=20 tb=0.5 | 0.391 | 0.757 | 0.516 |
+| L=0.5 V=1.5 k=20 tb=0.5 | 0.391 | 0.756 | 0.515 |
+| L=0.1 V=0.3 k=20 tb=0.5 | 0.391 | 0.756 | 0.515 |
+
+The top 5 candidates are within 0.001 harmonic mean of each other. The chosen default uses clean, memorable values with a 2:1 vector-to-lexical weight ratio.
 
 #### BM25 Implementation
 

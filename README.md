@@ -225,7 +225,7 @@ HybridQuery
 score(doc) = sum over lists of: weight * 1 / (k + rank)
 ```
 
-Where `k` is a constant (default 60) and `rank` is the document's 1-based position in each list. Documents appearing in both lexical and vector results get contributions from both, naturally boosting results that are relevant by multiple criteria.
+Where `k` is a constant (default 20) and `rank` is the document's 1-based position in each list. Documents appearing in both lexical and vector results get contributions from both, naturally boosting results that are relevant by multiple criteria.
 
 ## Project structure
 
@@ -319,10 +319,10 @@ Validated against [BEIR](https://github.com/beir-cellar/beir) on two datasets wi
 
 | Dataset | BM25 | Vector-only | Hybrid (default) | **Hybrid (tuned)** | Anserini BM25 |
 |---------|------|-------------|-------------------|---------------------|---------------|
-| NFCorpus | 0.325 | 0.384 | 0.374 | **0.392** | 0.325 |
-| SciFact | 0.665 | 0.731 | 0.731 | **0.757** | 0.679 |
+| NFCorpus | 0.325 | 0.384 | 0.392 | **0.392** | 0.325 |
+| SciFact | 0.665 | 0.731 | 0.756 | **0.757** | 0.679 |
 
-Key findings: TitleBoost=0.5 universally outperforms the default 1.0; lower RRF k values (1–20) beat the paper's k=60; vector weight should exceed lexical weight.
+Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.5`) were tuned via cross-dataset harmonic mean optimization across both datasets. Per-dataset tuned configs provide marginal additional gains.
 
 The benchmark runner supports multiple BEIR datasets with `--sweep` for grid search:
 

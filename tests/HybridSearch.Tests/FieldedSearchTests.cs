@@ -215,11 +215,11 @@ public class FieldedSearchTests
     }
 
     [Fact]
-    public void DefaultBoosts_AreOnePointZero()
+    public void DefaultBoosts_MatchTunedDefaults()
     {
         var query = new HybridQuery { Text = "test", TopK = 5 };
 
-        Assert.Equal(1f, query.TitleBoost);
+        Assert.Equal(0.5f, query.TitleBoost);
         Assert.Equal(1f, query.BodyBoost);
     }
 

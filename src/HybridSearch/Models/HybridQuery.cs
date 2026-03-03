@@ -35,20 +35,21 @@ public sealed record HybridQuery
     public int VectorK { get; init; } = 50;
 
     /// <summary>
-    /// Weight applied to lexical scores during RRF fusion.
+    /// Weight applied to lexical scores during RRF fusion. Default is 0.5,
+    /// tuned via BEIR benchmark sweeps across NFCorpus and SciFact datasets.
     /// </summary>
-    public float LexicalWeight { get; init; } = 1f;
+    public float LexicalWeight { get; init; } = 0.5f;
 
     /// <summary>
-    /// Weight applied to vector scores during RRF fusion.
+    /// Weight applied to vector scores during RRF fusion. Default is 1.0.
     /// </summary>
     public float VectorWeight { get; init; } = 1f;
 
     /// <summary>
     /// The k constant in the RRF formula: score = weight * 1/(RrfK + rank).
-    /// Default is 60, from the original RRF paper (Cormack, Clarke &amp; Butt, 2009).
+    /// Default is 20, tuned via BEIR benchmark sweeps across NFCorpus and SciFact datasets.
     /// </summary>
-    public int RrfK { get; init; } = 60;
+    public int RrfK { get; init; } = 20;
 
     /// <summary>
     /// When true, each result includes detailed score breakdown in <see cref="SearchResult.Explain"/>.
@@ -63,9 +64,10 @@ public sealed record HybridQuery
 
     /// <summary>
     /// Boost multiplier for the title field during lexical search.
-    /// Higher values increase the relevance of title matches. Default is 1.0.
+    /// Higher values increase the relevance of title matches. Default is 0.5,
+    /// tuned via BEIR benchmark sweeps across NFCorpus and SciFact datasets.
     /// </summary>
-    public float TitleBoost { get; init; } = 1f;
+    public float TitleBoost { get; init; } = 0.5f;
 
     /// <summary>
     /// Boost multiplier for the body field during lexical search.

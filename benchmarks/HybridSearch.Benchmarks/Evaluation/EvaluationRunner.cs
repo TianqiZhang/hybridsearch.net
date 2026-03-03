@@ -179,7 +179,7 @@ public sealed record EvaluationConfig
     /// <summary>
     /// Weight for lexical ranking in fusion.
     /// </summary>
-    public float LexicalWeight { get; init; } = 1f;
+    public float LexicalWeight { get; init; } = 0.5f;
 
     /// <summary>
     /// Weight for vector ranking in fusion.
@@ -192,14 +192,14 @@ public sealed record EvaluationConfig
     public int RecallAtK { get; init; } = 100;
 
     /// <summary>
-    /// The k constant in the RRF formula. Default 60.
+    /// The k constant in the RRF formula. Default 20, tuned via BEIR benchmark sweeps.
     /// </summary>
-    public int RrfK { get; init; } = 60;
+    public int RrfK { get; init; } = 20;
 
     /// <summary>
-    /// Boost multiplier for the title field during lexical search. Default 1.0.
+    /// Boost multiplier for the title field during lexical search. Default 0.5.
     /// </summary>
-    public float TitleBoost { get; init; } = 1f;
+    public float TitleBoost { get; init; } = 0.5f;
 }
 
 /// <summary>

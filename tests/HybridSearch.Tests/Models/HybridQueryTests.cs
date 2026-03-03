@@ -14,11 +14,13 @@ public class HybridQueryTests
         Assert.Equal(10, query.TopK);
         Assert.Equal(50, query.LexicalK);
         Assert.Equal(50, query.VectorK);
-        Assert.Equal(1f, query.LexicalWeight);
+        Assert.Equal(0.5f, query.LexicalWeight);
         Assert.Equal(1f, query.VectorWeight);
-        Assert.Equal(60, query.RrfK);
+        Assert.Equal(20, query.RrfK);
         Assert.False(query.Explain);
         Assert.Null(query.MetadataFilters);
+        Assert.Equal(0.5f, query.TitleBoost);
+        Assert.Equal(1f, query.BodyBoost);
     }
 
     [Fact]
