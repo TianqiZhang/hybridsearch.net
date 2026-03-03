@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate embeddings for BEIR NFCorpus dataset using Azure OpenAI and save in HybridSearch binary cache format.
+Generate embeddings for a BEIR dataset using Azure OpenAI and save in HybridSearch binary cache format.
 
 Produces a .bin file compatible with HybridSearch.Benchmarks EmbeddingCache.
 
 Usage:
     pip install openai azure-identity
-    python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output embeddings.bin
+    python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output nfcorpus-embeddings.bin
+    python tools/generate_embeddings.py --data-dir benchmarks/data/scifact --output scifact-embeddings.bin
 
 Environment variables:
     HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT    Azure OpenAI endpoint URL (e.g. https://myresource.openai.azure.com/)
@@ -136,12 +137,12 @@ def embed_all(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate embeddings for BEIR NFCorpus using Azure OpenAI (AAD auth)."
+        description="Generate embeddings for a BEIR dataset using Azure OpenAI (AAD auth)."
     )
     parser.add_argument(
         "--data-dir",
         required=True,
-        help="Path to extracted NFCorpus directory (containing corpus.jsonl, queries.jsonl).",
+        help="Path to extracted BEIR dataset directory (containing corpus.jsonl, queries.jsonl).",
     )
     parser.add_argument(
         "--output",

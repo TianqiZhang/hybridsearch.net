@@ -13,7 +13,7 @@ static async Task<int> RunAsync(string[] args)
         var options = ParseArguments(args);
 
         var dataDir = Path.GetFullPath(options.DataDir);
-        var datasetDir = await NfCorpusDownloader.EnsureDataAsync(dataDir).ConfigureAwait(false);
+        var datasetDir = await BeirDatasetDownloader.EnsureDataAsync(options.Dataset, dataDir).ConfigureAwait(false);
 
         var corpusPath = Path.Combine(datasetDir, "corpus.jsonl");
         var queriesPath = Path.Combine(datasetDir, "queries.jsonl");
@@ -93,7 +93,7 @@ static async Task<int> RunAsync(string[] args)
             Console.Error.WriteLine("No query embeddings found in cache. Skipping vector-only and hybrid modes.");
         }
 
-        PrintResults(corpus.Count, qrels.Count, results);
+        PrintResults(options.Dataset, corpus.Count, qrels.Count, results);
         return 0;
     }
     catch (ArgumentException ex)
@@ -168,6 +168,7 @@ static ParsedOptions ParseArguments(string[] args)
 {
     ArgumentNullException.ThrowIfNull(args);
 
+    var dataset = "nfcorpus";
     var dataDir = "./benchmarks/data";
     string? embeddingsPath = null;
 
@@ -175,6 +176,13 @@ static ParsedOptions ParseArguments(string[] args)
     {
         switch (args[i])
         {
+            case "--dataset":
+            case "-d":
+                if (i + 1 >= args.Length)
+                    throw new ArgumentException("Missing value for --dataset.");
+                dataset = args[++i];
+                break;
+
             case "--data-dir":
                 if (i + 1 >= args.Length)
                     throw new ArgumentException("Missing value for --data-dir.");
@@ -185,6 +193,11 @@ static ParsedOptions ParseArguments(string[] args)
                 if (i + 1 >= args.Length)
                     throw new ArgumentException("Missing value for --embeddings.");
                 embeddingsPath = args[++i];
+                break;
+
+            case "--list-datasets":
+                PrintAvailableDatasets();
+                Environment.Exit(0);
                 break;
 
             case "--help":
@@ -200,6 +213,7 @@ static ParsedOptions ParseArguments(string[] args)
 
     return new ParsedOptions
     {
+        Dataset = dataset,
         DataDir = dataDir,
         EmbeddingsPath = embeddingsPath
     };
@@ -207,16 +221,46 @@ static ParsedOptions ParseArguments(string[] args)
 
 static void PrintUsage()
 {
-    Console.WriteLine("HybridSearch.Benchmarks");
+    Console.WriteLine("HybridSearch.Benchmarks — BEIR dataset evaluation");
+    Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project benchmarks/HybridSearch.Benchmarks -- [--data-dir <dir>] [--embeddings <path>]");
+    Console.WriteLine("  dotnet run --project benchmarks/HybridSearch.Benchmarks -- [options]");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine("  --dataset, -d <name>    BEIR dataset to evaluate (default: nfcorpus)");
+    Console.WriteLine("  --data-dir <dir>        Base directory for dataset storage (default: ./benchmarks/data)");
+    Console.WriteLine("  --embeddings <path>     Path to pre-computed embeddings binary cache");
+    Console.WriteLine("  --list-datasets         Show available BEIR datasets and exit");
+    Console.WriteLine("  --help, -h              Show this help and exit");
+    Console.WriteLine();
+    Console.WriteLine("Examples:");
+    Console.WriteLine("  dotnet run --project benchmarks/HybridSearch.Benchmarks");
+    Console.WriteLine("  dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact");
+    Console.WriteLine("  dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact --embeddings scifact-embeddings.bin");
 }
 
-static void PrintResults(int corpusCount, int queryCount, IReadOnlyList<EvaluationResult> results)
+static void PrintAvailableDatasets()
 {
-    Console.WriteLine("NFCorpus Benchmark (BEIR)");
-    Console.WriteLine("=========================");
-    Console.WriteLine($"Dataset: {corpusCount:N0} docs | {queryCount:N0} queries | Graded relevance (0/1/2)");
+    Console.WriteLine("Available BEIR datasets:");
+    Console.WriteLine();
+    foreach (var (id, info) in BeirDatasetDownloader.KnownDatasets.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+    {
+        Console.WriteLine($"  {id,-16} {info.Description}");
+    }
+    Console.WriteLine();
+    Console.WriteLine("Any BEIR dataset ID can be used, even if not listed above.");
+    Console.WriteLine("The tool will attempt to download it from the BEIR CDN.");
+}
+
+static void PrintResults(string datasetId, int corpusCount, int queryCount, IReadOnlyList<EvaluationResult> results)
+{
+    var displayName = BeirDatasetDownloader.KnownDatasets.TryGetValue(datasetId, out var info)
+        ? info.DisplayName
+        : datasetId;
+
+    Console.WriteLine($"{displayName} Benchmark (BEIR)");
+    Console.WriteLine(new string('=', displayName.Length + 17));
+    Console.WriteLine($"Dataset: {corpusCount:N0} docs | {queryCount:N0} queries");
     Console.WriteLine();
     Console.WriteLine("Configuration            nDCG@10   MAP@10   Recall@100  Avg Query");
     Console.WriteLine("-------------------------------------------------------------------");
@@ -226,12 +270,12 @@ static void PrintResults(int corpusCount, int queryCount, IReadOnlyList<Evaluati
         Console.WriteLine(
             $"{result.Name,-24} {result.NdcgAt10,8:F5} {result.MapAt10,8:F5} {result.RecallAt100,10:F5}  {result.AvgQueryTimeMs,8:F1}ms");
     }
-
-    Console.WriteLine($"{"BEIR BM25 baseline",-24} {0.32500,8:F5} {"-",8} {"-",10}  {"-",8}");
 }
 
 file sealed record ParsedOptions
 {
+    public required string Dataset { get; init; }
+
     public required string DataDir { get; init; }
 
     public string? EmbeddingsPath { get; init; }

@@ -250,7 +250,7 @@ tests/
   HybridSearch.IntegrationTests/   CLI integration tests (5 tests)
 
 benchmarks/
-  HybridSearch.Benchmarks/          BEIR NFCorpus evaluation console app
+  HybridSearch.Benchmarks/          BEIR evaluation console app (multi-dataset)
 
 tools/
   generate_embeddings.py             Embedding generation script (Azure OpenAI)
@@ -313,50 +313,17 @@ Benchmarked on 3,000 documents with 768-dimensional embeddings (matching `text-e
 
 These are informational benchmarks, not hard SLAs. Actual performance depends on hardware, document size, and embedding dimensions.
 
-## BEIR NFCorpus Benchmark
+## BEIR Benchmarks
 
-The library includes a benchmark against the [BEIR (Benchmarking Information Retrieval)](https://github.com/beir-cellar/beir) NFCorpus dataset to validate retrieval quality.
+Validated against [BEIR](https://github.com/beir-cellar/beir) NFCorpus — hybrid search with tuned weights achieves **0.391 nDCG@10**, outperforming BM25 (0.304), vector-only (0.384), and the published Anserini baseline (0.325).
 
-**NFCorpus** is a biomedical information retrieval dataset with 3,633 PubMed articles and 323 test queries with graded relevance (0/1/2).
-
-### Results
-
-| Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
-|---------------|---------|--------|------------|-----------|
-| Lexical-only (BM25) | 0.304 | 0.217 | 0.241 | 4.0ms |
-| Vector-only (text-embedding-3-small) | 0.384 | 0.291 | 0.360 | 7.7ms |
-| Hybrid (L=0.1, V=1.0) | **0.391** | 0.294 | 0.360 | 8.2ms |
-| Hybrid (equal weights) | 0.366 | 0.270 | 0.366 | 8.5ms |
-| BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
-
-Vector-only retrieval with `text-embedding-3-small` (1536 dims) achieves **0.384 nDCG@10**, outperforming published baselines including ColBERT-v2 (0.338) on this dataset. Hybrid search with tuned weights (lexical=0.1, vector=1.0) pushes this further to **0.391 nDCG@10**.
-
-With equal weights (1:1), hybrid scores below vector-only (0.366 vs 0.384) because BM25 is weaker on this biomedical domain and dilutes the stronger vector signal. A small lexical contribution (0.1 weight) adds just enough keyword matching to improve results without overwhelming the semantic signal. Our BM25 implementation scores within 6.5% of the reference Anserini/Lucene baseline.
-
-### Running the Benchmark
+The benchmark runner supports multiple BEIR datasets (NFCorpus, SciFact, FiQA, and more):
 
 ```bash
-# Run benchmark (auto-downloads NFCorpus on first run)
-dotnet run --project benchmarks/HybridSearch.Benchmarks
-
-# Run with precomputed embeddings (enables vector-only and hybrid modes)
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --embeddings ./embeddings.bin
+dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact
 ```
 
-### Generating Embeddings
-
-To run vector-only and hybrid benchmarks, pre-compute embeddings with the included Python script:
-
-```bash
-pip install openai azure-identity
-python tools/generate_embeddings.py --data-dir benchmarks/data/nfcorpus --output embeddings.bin
-```
-
-Set `HYBRIDSEARCH_AZURE_OPENAI_ENDPOINT` to your Azure OpenAI endpoint. Authentication uses `DefaultAzureCredential` (Azure CLI, managed identity, etc.). Optionally set `HYBRIDSEARCH_AZURE_OPENAI_DEPLOYMENT` (defaults to `text-embedding-3-small`).
-
-This encodes all 3,633 documents and 323 queries using `text-embedding-3-small` (1536 dims) and saves them in the binary cache format. Then re-run the benchmark with `--embeddings embeddings.bin`.
-
-The benchmark parses BEIR files (`corpus.jsonl`, `queries.jsonl`, `qrels/test.tsv`), evaluates lexical/vector/hybrid retrieval, and reports nDCG@10, MAP@10, and Recall@100.
+See [benchmarks/README.md](benchmarks/README.md) for full results, dataset list, configuration options, and embedding generation instructions.
 
 ## Roadmap
 
