@@ -89,7 +89,9 @@ public sealed class EvaluationRunner : IDisposable
                 LexicalK = config.LexicalK,
                 VectorK = config.VectorK,
                 LexicalWeight = config.LexicalWeight,
-                VectorWeight = config.VectorWeight
+                VectorWeight = config.VectorWeight,
+                RrfK = config.RrfK,
+                TitleBoost = config.TitleBoost
             };
 
             var responseAt10 = _index.Search(queryForAt10);
@@ -188,6 +190,16 @@ public sealed record EvaluationConfig
     /// Cutoff for recall metric computation.
     /// </summary>
     public int RecallAtK { get; init; } = 100;
+
+    /// <summary>
+    /// The k constant in the RRF formula. Default 60.
+    /// </summary>
+    public int RrfK { get; init; } = 60;
+
+    /// <summary>
+    /// Boost multiplier for the title field during lexical search. Default 1.0.
+    /// </summary>
+    public float TitleBoost { get; init; } = 1f;
 }
 
 /// <summary>

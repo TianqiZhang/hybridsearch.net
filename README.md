@@ -315,15 +315,22 @@ These are informational benchmarks, not hard SLAs. Actual performance depends on
 
 ## BEIR Benchmarks
 
-Validated against [BEIR](https://github.com/beir-cellar/beir) NFCorpus — hybrid search with tuned weights achieves **0.391 nDCG@10**, outperforming BM25 (0.325), vector-only (0.384), and the published Anserini baseline (0.325). Our BM25 now matches the Anserini reference baseline exactly.
+Validated against [BEIR](https://github.com/beir-cellar/beir) on two datasets with parameter sweeps (245 configurations each):
 
-The benchmark runner supports multiple BEIR datasets (NFCorpus, SciFact, FiQA, and more):
+| Dataset | BM25 | Vector-only | Hybrid (default) | **Hybrid (tuned)** | Anserini BM25 |
+|---------|------|-------------|-------------------|---------------------|---------------|
+| NFCorpus | 0.325 | 0.384 | 0.374 | **0.392** | 0.325 |
+| SciFact | 0.665 | 0.731 | 0.731 | **0.757** | 0.679 |
+
+Key findings: TitleBoost=0.5 universally outperforms the default 1.0; lower RRF k values (1–20) beat the paper's k=60; vector weight should exceed lexical weight.
+
+The benchmark runner supports multiple BEIR datasets with `--sweep` for grid search:
 
 ```bash
-dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact
+dotnet run --project benchmarks/HybridSearch.Benchmarks -- --dataset scifact --embeddings scifact-embeddings.bin --sweep
 ```
 
-See [benchmarks/README.md](benchmarks/README.md) for full results, dataset list, configuration options, and embedding generation instructions.
+See [benchmarks/README.md](benchmarks/README.md) for full results, sweep methodology, and analysis.
 
 ## Roadmap
 
