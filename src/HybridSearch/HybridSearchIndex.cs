@@ -43,7 +43,7 @@ public sealed class HybridSearchIndex : IHybridSearchIndex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(query);
-        ValidateBoosts(query);
+        query.ValidateBoosts();
 
         var totalSw = Stopwatch.StartNew();
 
@@ -66,7 +66,7 @@ public sealed class HybridSearchIndex : IHybridSearchIndex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(query);
-        ValidateBoosts(query);
+        query.ValidateBoosts();
 
         var totalSw = Stopwatch.StartNew();
 
@@ -204,14 +204,6 @@ public sealed class HybridSearchIndex : IHybridSearchIndex
             QueryTimeMs = totalSw.Elapsed.TotalMilliseconds,
             TimingBreakdown = timing
         };
-    }
-
-    private static void ValidateBoosts(HybridQuery query)
-    {
-        if (float.IsNaN(query.TitleBoost) || float.IsInfinity(query.TitleBoost) || query.TitleBoost < 0)
-            throw new ArgumentOutOfRangeException(nameof(query), $"TitleBoost must be a finite non-negative value, got {query.TitleBoost}.");
-        if (float.IsNaN(query.BodyBoost) || float.IsInfinity(query.BodyBoost) || query.BodyBoost < 0)
-            throw new ArgumentOutOfRangeException(nameof(query), $"BodyBoost must be a finite non-negative value, got {query.BodyBoost}.");
     }
 
     /// <inheritdoc/>

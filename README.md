@@ -277,7 +277,7 @@ dotnet test tests/HybridSearch.IntegrationTests
 
 ## Test coverage
 
-190 tests covering:
+194 tests covering:
 
 | Category | Tests | What's covered |
 |----------|-------|----------------|
@@ -285,7 +285,7 @@ dotnet test tests/HybridSearch.IntegrationTests
 | RRF Fusion | 11 | Single/multi-list fusion, weights, TopK, explain, tie-breaking |
 | Vector Math | 7 | SIMD dot product, normalization, edge cases |
 | Vector Retriever | 10 | Cosine similarity, ranking, TopK, empty index |
-| Lexical Retriever | 16 | BM25 search, fielded search, case insensitivity, multi-term, TopK |
+| Lexical Retriever | 20 | BM25 search, fielded search, case insensitivity, stop words, term frequency boosting, boosts, null input |
 | Text Analyzer | 8 | Tokenization, case folding, empty input |
 | Corpus Generators | 13 | Deterministic generation, topic clustering, edge cases |
 | Index Builder | 12 | Fluent API, folder ingestion, embedding, validation |

@@ -72,4 +72,16 @@ public sealed record HybridQuery
     /// Higher values increase the relevance of body matches. Default is 1.0.
     /// </summary>
     public float BodyBoost { get; init; } = 1f;
+
+    /// <summary>
+    /// Validates that TitleBoost and BodyBoost are finite non-negative values.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a boost value is NaN, infinite, or negative.</exception>
+    internal void ValidateBoosts()
+    {
+        if (float.IsNaN(TitleBoost) || float.IsInfinity(TitleBoost) || TitleBoost < 0)
+            throw new ArgumentOutOfRangeException(nameof(TitleBoost), $"TitleBoost must be a finite non-negative value, got {TitleBoost}.");
+        if (float.IsNaN(BodyBoost) || float.IsInfinity(BodyBoost) || BodyBoost < 0)
+            throw new ArgumentOutOfRangeException(nameof(BodyBoost), $"BodyBoost must be a finite non-negative value, got {BodyBoost}.");
+    }
 }

@@ -207,4 +207,70 @@ public class LuceneLexicalRetrieverTests
 
         Assert.Throws<ObjectDisposedException>(() => retriever.Add("doc-1", "hello"));
     }
+
+    [Fact]
+    public void Search_AllStopWords_ReturnsEmpty()
+    {
+        using var retriever = new LuceneLexicalRetriever();
+        retriever.Add("doc-1", "the quick brown fox jumps over the lazy dog");
+
+        // "the", "a", "is", "are" are all stop words — analyzer strips them, leaving no query terms
+        var results = retriever.Search("the a is are", topK: 10);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void Search_RepeatedTerms_BoostedByFrequency()
+    {
+        using var retriever = new LuceneLexicalRetriever();
+        // doc-1 has both "neural" and "network" — matches both unique query terms
+        retriever.Add("doc-1", "neural network architectures for image recognition");
+        // doc-2 has "network" but not "neural"
+        retriever.Add("doc-2", "network security and firewall configuration");
+
+        // Repeating "neural" should boost documents matching "neural" more
+        var resultsNormal = retriever.Search("neural network", topK: 10);
+        var resultsBoosted = retriever.Search("neural neural neural network", topK: 10);
+
+        // doc-1 should be first in both cases (matches both terms)
+        Assert.Equal("doc-1", resultsNormal[0].Id);
+        Assert.Equal("doc-1", resultsBoosted[0].Id);
+
+        // With repeated "neural", doc-1's score should increase relative to doc-2
+        // because the frequency-weighted boost on "neural" TermQuery is higher
+        double normalRatio = resultsNormal[0].Score / resultsNormal[1].Score;
+        double boostedRatio = resultsBoosted[0].Score / resultsBoosted[1].Score;
+        Assert.True(boostedRatio > normalRatio,
+            $"Expected boosted ratio ({boostedRatio:F4}) > normal ratio ({normalRatio:F4})");
+    }
+
+    [Fact]
+    public void Search_WithBoosts_TitleBoostAffectsRanking()
+    {
+        using var retriever = new LuceneLexicalRetriever();
+        // doc-1: "search" only in title
+        retriever.Add("doc-1", "unrelated body content about databases", title: "search algorithms");
+        // doc-2: "search" only in body
+        retriever.Add("doc-2", "information search and retrieval systems", title: "unrelated title");
+
+        // With high title boost, doc-1 (title match) should rank higher
+        var highTitleResults = retriever.Search("search", topK: 10, titleBoost: 10f, bodyBoost: 1f);
+        Assert.True(highTitleResults.Count >= 2);
+        Assert.Equal("doc-1", highTitleResults[0].Id);
+
+        // With high body boost, doc-2 (body match) should rank higher
+        var highBodyResults = retriever.Search("search", topK: 10, titleBoost: 1f, bodyBoost: 10f);
+        Assert.True(highBodyResults.Count >= 2);
+        Assert.Equal("doc-2", highBodyResults[0].Id);
+    }
+
+    [Fact]
+    public void Search_NullText_Throws()
+    {
+        using var retriever = new LuceneLexicalRetriever();
+        retriever.Add("doc-1", "hello world");
+
+        Assert.Throws<ArgumentNullException>(() => retriever.Search(null!, topK: 10));
+    }
 }
