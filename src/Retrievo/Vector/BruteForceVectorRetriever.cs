@@ -18,7 +18,7 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         {
             float value = embedding[i];
             if (float.IsNaN(value) || float.IsInfinity(value))
-                throw new ArgumentException("Embedding contains NaN or Infinity values.", paramName);
+                throw new ArgumentException("Vector contains non-finite values (NaN or Infinity).", paramName);
         }
     }
 
