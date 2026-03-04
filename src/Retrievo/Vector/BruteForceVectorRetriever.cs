@@ -140,6 +140,8 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         var normalizedQuery = VectorMath.Normalize(vector);
 
         // Compute similarities — brute-force scan with periodic cancellation checks
+        ct.ThrowIfCancellationRequested();
+
         var scored = new (string Id, float Similarity)[_entries.Count];
         for (int i = 0; i < _entries.Count; i++)
         {

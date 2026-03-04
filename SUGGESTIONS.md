@@ -42,9 +42,9 @@
 
 ### 6. ~~Publish XML documentation with NuGet package~~ ✅ DONE
 
-**Where**: `Directory.Build.props`, `.csproj` files  
+**Where**: `src/Retrievo/Retrievo.csproj`, `src/Retrievo.AzureOpenAI/Retrievo.AzureOpenAI.csproj`  
 **Problem**: The codebase has excellent XML docs on all public types, but unless `GenerateDocumentationFile=true` is set and the XML file ships with the NuGet package, IDE consumers won't see them.  
-**Fix**: ~~Ensure `<GenerateDocumentationFile>true</GenerateDocumentationFile>` in `Directory.Build.props`.~~ **Fixed**: Added `<GenerateDocumentationFile>true</GenerateDocumentationFile>` to `Directory.Build.props`. The XML file is automatically included in NuGet packages by the SDK.
+**Fix**: ~~Ensure `<GenerateDocumentationFile>true</GenerateDocumentationFile>` in `Directory.Build.props`.~~ **Fixed**: Added `<GenerateDocumentationFile>true</GenerateDocumentationFile>` to the two packable `.csproj` files (not `Directory.Build.props`, which would cascade CS1591 errors to test/CLI projects). The XML file is automatically included in NuGet packages by the SDK.
 
 ---
 

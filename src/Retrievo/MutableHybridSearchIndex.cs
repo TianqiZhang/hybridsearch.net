@@ -322,6 +322,8 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
 
         var normalizedQuery = VectorMath.Normalize(queryVector);
 
+        ct.ThrowIfCancellationRequested();
+
         var scored = new (string Id, float Similarity)[entries.Count];
         for (int i = 0; i < entries.Count; i++)
         {

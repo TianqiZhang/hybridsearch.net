@@ -21,7 +21,7 @@ public interface IVectorRetriever
     /// </summary>
     /// <param name="vector">The query embedding vector (must match index dimensions).</param>
     /// <param name="topK">Maximum number of results to return.</param>
-    /// <param name="ct">Cancellation token for cooperative cancellation during the brute-force scan.</param>
+    /// <param name="ct">Cancellation token for cooperative cancellation during the search.</param>
     /// <returns>A ranked list of document IDs with cosine similarity scores, ordered by descending similarity.</returns>
     IReadOnlyList<RankedItem> Search(float[] vector, int topK, CancellationToken ct);
 }
