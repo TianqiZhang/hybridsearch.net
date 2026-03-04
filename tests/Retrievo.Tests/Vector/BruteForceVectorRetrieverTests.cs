@@ -166,4 +166,34 @@ public class BruteForceVectorRetrieverTests
         Assert.Throws<ArgumentException>(() =>
             retriever.Search(new float[] { float.NaN, 0f, 0f }, topK: 10));
     }
+
+    [Fact]
+    public void Add_InvalidFirstEmbedding_DoesNotSetDimensions()
+    {
+        var retriever = new BruteForceVectorRetriever();
+
+        Assert.Throws<ArgumentException>(() =>
+            retriever.Add("bad", new float[] { float.NaN, 1f, 2f }));
+
+        Assert.Equal(0, retriever.Dimensions);
+
+        retriever.Add("good", new float[] { 1f, 2f });
+        Assert.Equal(2, retriever.Dimensions);
+        Assert.Equal(1, retriever.Count);
+    }
+
+    [Fact]
+    public void Update_InvalidFirstEmbedding_DoesNotSetDimensions()
+    {
+        var retriever = new BruteForceVectorRetriever();
+
+        Assert.Throws<ArgumentException>(() =>
+            retriever.Update("bad", new float[] { 1f, float.PositiveInfinity, 2f }));
+
+        Assert.Equal(0, retriever.Dimensions);
+
+        retriever.Update("good", new float[] { 1f, 2f, 3f, 4f });
+        Assert.Equal(4, retriever.Dimensions);
+        Assert.Equal(1, retriever.Count);
+    }
 }

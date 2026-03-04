@@ -51,13 +51,13 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         if (embedding.Length == 0)
             throw new ArgumentException("Embedding must not be empty.", nameof(embedding));
 
+        ValidateFiniteValues(embedding, nameof(embedding));
+
         if (Dimensions == 0)
             Dimensions = embedding.Length;
         else if (embedding.Length != Dimensions)
             throw new ArgumentException(
                 $"Embedding dimension mismatch: expected {Dimensions}, got {embedding.Length}.", nameof(embedding));
-
-        ValidateFiniteValues(embedding, nameof(embedding));
 
         var normalized = VectorMath.Normalize(embedding);
         _entries.Add((id, normalized));
@@ -75,13 +75,13 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         if (embedding.Length == 0)
             throw new ArgumentException("Embedding must not be empty.", nameof(embedding));
 
+        ValidateFiniteValues(embedding, nameof(embedding));
+
         if (Dimensions == 0)
             Dimensions = embedding.Length;
         else if (embedding.Length != Dimensions)
             throw new ArgumentException(
                 $"Embedding dimension mismatch: expected {Dimensions}, got {embedding.Length}.", nameof(embedding));
-
-        ValidateFiniteValues(embedding, nameof(embedding));
 
         var normalized = VectorMath.Normalize(embedding);
 

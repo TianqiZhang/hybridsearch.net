@@ -202,7 +202,7 @@ dotnet build
 dotnet test
 ```
 
-233 tests covering retrieval, vector math, fusion, mutable index, filters, field definitions, and CLI integration — 0 warnings.
+235 tests covering retrieval, vector math, fusion, mutable index, filters, field definitions, and CLI integration — 0 warnings.
 
 ## Known Limitations
 
