@@ -137,4 +137,33 @@ public class BruteForceVectorRetrieverTests
         retriever.Add("doc-2", new float[] { 0f, 1f });
         Assert.Equal(2, retriever.Count);
     }
+
+    [Fact]
+    public void Add_NaNEmbedding_Throws()
+    {
+        var retriever = new BruteForceVectorRetriever();
+
+        Assert.Throws<ArgumentException>(() =>
+            retriever.Add("doc-1", new float[] { 1f, float.NaN, 0f }));
+    }
+
+    [Fact]
+    public void Update_InfinityEmbedding_Throws()
+    {
+        var retriever = new BruteForceVectorRetriever();
+        retriever.Add("doc-1", new float[] { 1f, 0f, 0f });
+
+        Assert.Throws<ArgumentException>(() =>
+            retriever.Update("doc-1", new float[] { 1f, float.PositiveInfinity, 0f }));
+    }
+
+    [Fact]
+    public void Search_NaNQueryVector_Throws()
+    {
+        var retriever = new BruteForceVectorRetriever();
+        retriever.Add("doc-1", new float[] { 1f, 0f, 0f });
+
+        Assert.Throws<ArgumentException>(() =>
+            retriever.Search(new float[] { float.NaN, 0f, 0f }, topK: 10));
+    }
 }
