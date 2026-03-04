@@ -145,7 +145,7 @@ catch (Exception) { }  // NEVER
 
 | Anti-Pattern | Where It Exists | Why It's Bad |
 |---|---|---|
-| `.GetAwaiter().GetResult()` | `HybridSearchIndex.Search`, `MutableHybridSearchIndex.Search` | Blocks thread pool, potential deadlock. Known tech debt — do not add more. |
+| `.GetAwaiter().GetResult()` in sync APIs | Fixed in core library sync `Search()`/`Build()` paths | Do not introduce blocking async waits in synchronous APIs. Throw `InvalidOperationException` and direct callers to async alternatives when async work is required. |
 | `ex.Message.Contains("...")` | `Program.cs` (CLI) | Brittle — breaks if message text changes. Use specific exception types instead. |
 | Type suppression (`as any` / `#pragma`) | Not present | Keep it that way. `TreatWarningsAsErrors` is on. |
 | Empty catch blocks | Not present | Keep it that way. |

@@ -75,9 +75,50 @@ public sealed class MutableHybridSearchIndexBuilder
     /// <summary>
     /// Build the mutable index synchronously. Seed documents are indexed and an initial commit is created.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when an embedding provider is configured and one or more seed documents are missing pre-computed embeddings.
+    /// Use <see cref="BuildAsync(CancellationToken)"/>, or provide pre-computed embeddings on all documents.
+    /// </exception>
     public MutableHybridSearchIndex Build()
     {
-        return BuildAsync(CancellationToken.None).GetAwaiter().GetResult();
+        var sw = Stopwatch.StartNew();
+
+        if (_embeddingProvider is not null && _documents.Any(doc => doc.Embedding is null))
+            throw new InvalidOperationException("Synchronous Build() cannot generate embeddings for documents. Use BuildAsync(), or provide pre-computed Embedding values on all documents.");
+
+        var lexicalRetriever = new LuceneLexicalRetriever();
+        var vectorRetriever = new BruteForceVectorRetriever();
+        var fuser = _fuser ?? new RrfFuser();
+        var docMap = new Dictionary<string, Document>(StringComparer.Ordinal);
+
+        int? embeddingDimension = null;
+
+        foreach (var doc in _documents)
+        {
+            docMap[doc.Id] = doc;
+
+            // Index in lexical retriever
+            lexicalRetriever.Add(doc.Id, doc.Body, doc.Title);
+
+            // Index in vector retriever (if embedding available)
+            if (doc.Embedding is not null)
+            {
+                vectorRetriever.Add(doc.Id, doc.Embedding);
+                embeddingDimension ??= doc.Embedding.Length;
+            }
+        }
+
+        sw.Stop();
+
+        var stats = new IndexStats
+        {
+            DocumentCount = _documents.Count,
+            EmbeddingDimension = embeddingDimension,
+            IndexBuildTimeMs = sw.Elapsed.TotalMilliseconds
+        };
+
+        var fieldDefinitionsCopy = new Dictionary<string, FieldDefinition>(_fieldDefinitions, StringComparer.Ordinal);
+        return new MutableHybridSearchIndex(lexicalRetriever, vectorRetriever, fuser, _embeddingProvider, docMap, stats, fieldDefinitionsCopy);
     }
 
     /// <summary>

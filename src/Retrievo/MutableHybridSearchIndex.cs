@@ -151,7 +151,17 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Execute a hybrid search query synchronously against the current committed snapshot.
+    /// </summary>
+    /// <param name="query">The hybrid query to execute.</param>
+    /// <returns>The search response containing fused results and timing information.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> is null.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this index has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when query text requires embedding generation and an embedding provider is configured.
+    /// Use <see cref="SearchAsync(HybridQuery, CancellationToken)"/>, or provide a pre-computed vector in <see cref="HybridQuery.Vector"/>.
+    /// </exception>
     public SearchResponse Search(HybridQuery query)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -165,10 +175,7 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
         double? embeddingTimeMs = null;
         if (queryVector is null && query.Text is not null && _embeddingProvider is not null)
         {
-            var embedSw = Stopwatch.StartNew();
-            queryVector = _embeddingProvider.EmbedAsync(query.Text).GetAwaiter().GetResult();
-            embedSw.Stop();
-            embeddingTimeMs = embedSw.Elapsed.TotalMilliseconds;
+            throw new InvalidOperationException("Synchronous Search() cannot generate embeddings for query text. Use SearchAsync(), or provide a pre-computed Vector in the HybridQuery.");
         }
 
         return ExecuteSearch(query, queryVector, embeddingTimeMs, snapshot, totalSw);
