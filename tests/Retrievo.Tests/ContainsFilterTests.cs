@@ -6,7 +6,10 @@ public class ContainsFilterTests
 {
     private static MutableHybridSearchIndex BuildMutableIndexWithMultiValueMetadata()
     {
-        var index = new MutableHybridSearchIndexBuilder().Build();
+        var index = new MutableHybridSearchIndexBuilder()
+            .DefineField("project_ids", FieldType.StringArray)
+            .DefineField("tags", FieldType.StringArray)
+            .Build();
 
         index.Upsert(new Document
         {
@@ -66,7 +69,7 @@ public class ContainsFilterTests
         {
             Text = "deployed authentication service",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "proj-alpha"
             }
@@ -88,7 +91,7 @@ public class ContainsFilterTests
         {
             Text = "deployed authentication fixed documentation",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "proj-beta"
             }
@@ -110,7 +113,7 @@ public class ContainsFilterTests
         {
             Text = "deployed authentication",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "proj-nonexistent"
             }
@@ -129,7 +132,7 @@ public class ContainsFilterTests
         {
             Text = "deployed documentation service",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "proj-alph"
             }
@@ -148,7 +151,7 @@ public class ContainsFilterTests
         {
             Text = "documentation API endpoints",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "proj-alpha"
             }
@@ -166,9 +169,9 @@ public class ContainsFilterTests
         {
             Text = "deployed authentication service hotfix",
             TopK = 10,
-            MetadataFilters = new Dictionary<string, string> { ["service"] = "deploy" },
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
+                ["service"] = "deploy",
                 ["tags"] = "security"
             }
         });
@@ -181,7 +184,9 @@ public class ContainsFilterTests
     [Fact]
     public void ContainsFilter_CombinedWithRangeFilter()
     {
-        using var index = new MutableHybridSearchIndexBuilder().Build();
+        using var index = new MutableHybridSearchIndexBuilder()
+            .DefineField("project_ids", FieldType.StringArray)
+            .Build();
 
         index.Upsert(new Document
         {
@@ -223,7 +228,7 @@ public class ContainsFilterTests
             {
                 new MetadataRangeFilter { Key = "timestamp", Min = "2025-06-01T00:00:00Z" }
             },
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "p1"
             }
@@ -243,7 +248,7 @@ public class ContainsFilterTests
         {
             Text = "deployed authentication",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["nonexistent_key"] = "value"
             }
@@ -255,7 +260,9 @@ public class ContainsFilterTests
     [Fact]
     public void ContainsFilter_NullMetadataDocument_FilteredOut()
     {
-        using var index = new MutableHybridSearchIndexBuilder().Build();
+        using var index = new MutableHybridSearchIndexBuilder()
+            .DefineField("project_ids", FieldType.StringArray)
+            .Build();
 
         index.Upsert(new Document
         {
@@ -278,7 +285,7 @@ public class ContainsFilterTests
         {
             Text = "document project metadata",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "p1"
             }
@@ -291,7 +298,9 @@ public class ContainsFilterTests
     [Fact]
     public void ContainsFilter_CustomDelimiter()
     {
-        using var index = new MutableHybridSearchIndexBuilder().Build();
+        using var index = new MutableHybridSearchIndexBuilder()
+            .DefineField("tags", FieldType.StringArray, delimiter: ',')
+            .Build();
 
         index.Upsert(new Document
         {
@@ -317,8 +326,7 @@ public class ContainsFilterTests
         {
             Text = "document tags",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string> { ["tags"] = "beta" },
-            MetadataContainsDelimiter = ','
+            MetadataFilters = new Dictionary<string, string> { ["tags"] = "beta" }
         });
 
         Assert.Single(response.Results);
@@ -329,6 +337,7 @@ public class ContainsFilterTests
     public void ContainsFilter_WorksWithImmutableIndex()
     {
         using var index = new HybridSearchIndexBuilder()
+            .DefineField("project_ids", FieldType.StringArray)
             .AddDocument(new Document
             {
                 Id = "doc-1",
@@ -353,7 +362,7 @@ public class ContainsFilterTests
         {
             Text = "document projects",
             TopK = 10,
-            MetadataContainsFilters = new Dictionary<string, string>
+            MetadataFilters = new Dictionary<string, string>
             {
                 ["project_ids"] = "p2"
             }
@@ -361,5 +370,87 @@ public class ContainsFilterTests
 
         Assert.Single(response.Results);
         Assert.Equal("doc-1", response.Results[0].Id);
+    }
+
+    [Fact]
+    public void ContainsFilter_NullMetadataValue_FilteredOut()
+    {
+        using var index = new MutableHybridSearchIndexBuilder()
+            .DefineField("project_ids", FieldType.StringArray)
+            .Build();
+
+        index.Upsert(new Document
+        {
+            Id = "with-value",
+            Body = "Document with project ids.",
+            Metadata = new Dictionary<string, string>
+            {
+                ["project_ids"] = "p1|p2"
+            }
+        });
+        index.Upsert(new Document
+        {
+            Id = "null-value",
+            Body = "Document with null project ids value.",
+            Metadata = new Dictionary<string, string>
+            {
+                ["project_ids"] = null!
+            }
+        });
+        index.Commit();
+
+        var response = index.Search(new HybridQuery
+        {
+            Text = "document project",
+            TopK = 10,
+            MetadataFilters = new Dictionary<string, string>
+            {
+                ["project_ids"] = "p1"
+            }
+        });
+
+        // null-value doc should be filtered out, not throw
+        Assert.Single(response.Results);
+        Assert.Equal("with-value", response.Results[0].Id);
+    }
+
+    [Fact]
+    public void ContainsFilter_ConsecutiveDelimiters_IgnoresEmptySegments()
+    {
+        using var index = new MutableHybridSearchIndexBuilder()
+            .DefineField("tags", FieldType.StringArray)
+            .Build();
+
+        index.Upsert(new Document
+        {
+            Id = "doc-1",
+            Body = "Document with consecutive delimiters.",
+            Metadata = new Dictionary<string, string>
+            {
+                ["tags"] = "a||b|c|"
+            }
+        });
+        index.Commit();
+
+        // 'b' should still match despite consecutive delimiters
+        var response = index.Search(new HybridQuery
+        {
+            Text = "document tags",
+            TopK = 10,
+            MetadataFilters = new Dictionary<string, string> { ["tags"] = "b" }
+        });
+
+        Assert.Single(response.Results);
+        Assert.Equal("doc-1", response.Results[0].Id);
+
+        // Empty string should NOT match (RemoveEmptyEntries filters them out)
+        var emptyResponse = index.Search(new HybridQuery
+        {
+            Text = "document tags",
+            TopK = 10,
+            MetadataFilters = new Dictionary<string, string> { ["tags"] = "" }
+        });
+
+        Assert.Empty(emptyResponse.Results);
     }
 }

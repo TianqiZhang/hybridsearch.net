@@ -20,6 +20,7 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
     private readonly BruteForceVectorRetriever _vectorRetriever;
     private readonly IFuser _fuser;
     private readonly IEmbeddingProvider? _embeddingProvider;
+    private readonly IReadOnlyDictionary<string, FieldDefinition> _fieldDefinitions;
 
     // Live (mutable) document map — updated on Upsert/Delete
     private readonly Dictionary<string, Document> _pendingDocuments;
@@ -35,13 +36,15 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
         IFuser fuser,
         IEmbeddingProvider? embeddingProvider,
         Dictionary<string, Document> documents,
-        IndexStats stats)
+        IndexStats stats,
+        Dictionary<string, FieldDefinition> fieldDefinitions)
     {
         _lexicalRetriever = lexicalRetriever;
         _vectorRetriever = vectorRetriever;
         _fuser = fuser;
         _embeddingProvider = embeddingProvider;
         _pendingDocuments = documents;
+        _fieldDefinitions = fieldDefinitions;
 
         // Enable manual refresh mode — only refresh Lucene searcher on Commit()
         _lexicalRetriever.ManualRefreshOnly = true;
@@ -210,8 +213,7 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
 
         bool hasExactFilters = query.MetadataFilters is not null && query.MetadataFilters.Count > 0;
         bool hasRangeFilters = query.MetadataRangeFilters is not null && query.MetadataRangeFilters.Count > 0;
-        bool hasContainsFilters = query.MetadataContainsFilters is not null && query.MetadataContainsFilters.Count > 0;
-        bool hasMetadataFilters = hasExactFilters || hasRangeFilters || hasContainsFilters;
+        bool hasMetadataFilters = hasExactFilters || hasRangeFilters;
 
         int overRetrievalMultiplier = hasMetadataFilters ? 4 : 1;
         int lexicalK = query.LexicalK * overRetrievalMultiplier;
@@ -272,7 +274,7 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
             {
                 if (snapshot.Documents.TryGetValue(result.Id, out var doc) && doc.Metadata is not null)
                 {
-                    if (MatchesAllFilters(doc, query))
+                    if (MetadataFilterEvaluator.MatchesAll(doc.Metadata, query, _fieldDefinitions))
                         filtered.Add(result);
                 }
 
@@ -303,66 +305,6 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
             QueryTimeMs = totalSw.Elapsed.TotalMilliseconds,
             TimingBreakdown = timing
         };
-    }
-
-    /// <summary>
-    /// Checks whether a document matches all configured metadata filters (exact, range, and contains).
-    /// </summary>
-    private static bool MatchesAllFilters(Document doc, HybridQuery query)
-    {
-        var metadata = doc.Metadata!;
-
-        // Exact-match filters
-        if (query.MetadataFilters is not null)
-        {
-            foreach (var (key, value) in query.MetadataFilters)
-            {
-                if (!metadata.TryGetValue(key, out var docValue) ||
-                    !string.Equals(docValue, value, StringComparison.Ordinal))
-                    return false;
-            }
-        }
-
-        // Range filters (ordinal string comparison — works for ISO 8601 and zero-padded numbers)
-        if (query.MetadataRangeFilters is not null)
-        {
-            foreach (var filter in query.MetadataRangeFilters)
-            {
-                if (!metadata.TryGetValue(filter.Key, out var docValue))
-                    return false;
-
-                if (filter.Min is not null && string.Compare(docValue, filter.Min, StringComparison.Ordinal) < 0)
-                    return false;
-
-                if (filter.Max is not null && string.Compare(docValue, filter.Max, StringComparison.Ordinal) > 0)
-                    return false;
-            }
-        }
-
-        // Contains filters (split metadata value by delimiter, check if any element matches)
-        if (query.MetadataContainsFilters is not null)
-        {
-            foreach (var (key, value) in query.MetadataContainsFilters)
-            {
-                if (!metadata.TryGetValue(key, out var docValue))
-                    return false;
-
-                bool found = false;
-                foreach (var segment in docValue.Split(query.MetadataContainsDelimiter))
-                {
-                    if (string.Equals(segment, value, StringComparison.Ordinal))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                    return false;
-            }
-        }
-
-        return true;
     }
 
     private static IReadOnlyList<RankedItem> SearchVectorSnapshot(

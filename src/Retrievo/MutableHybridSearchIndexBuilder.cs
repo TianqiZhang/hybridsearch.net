@@ -16,6 +16,7 @@ public sealed class MutableHybridSearchIndexBuilder
     private readonly List<Document> _documents = new();
     private IEmbeddingProvider? _embeddingProvider;
     private IFuser? _fuser;
+    private readonly Dictionary<string, FieldDefinition> _fieldDefinitions = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Add a single document to seed the index.
@@ -52,6 +53,22 @@ public sealed class MutableHybridSearchIndexBuilder
     public MutableHybridSearchIndexBuilder WithFuser(IFuser fuser)
     {
         _fuser = fuser ?? throw new ArgumentNullException(nameof(fuser));
+        return this;
+    }
+
+    /// <summary>
+    /// Declare a metadata field type. Fields not declared default to <see cref="FieldType.String"/> (exact match).
+    /// Use <see cref="FieldType.StringArray"/> for delimited multi-value fields.
+    /// </summary>
+    /// <param name="name">Metadata key this definition applies to.</param>
+    /// <param name="type">The field type that determines filter behavior.</param>
+    /// <param name="delimiter">Delimiter for <see cref="FieldType.StringArray"/> fields (default '|').</param>
+    public MutableHybridSearchIndexBuilder DefineField(string name, FieldType type, char delimiter = '|')
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var def = new FieldDefinition { Name = name, Type = type, Delimiter = delimiter };
+        def.Validate();
+        _fieldDefinitions[name] = def;
         return this;
     }
 
@@ -104,7 +121,8 @@ public sealed class MutableHybridSearchIndexBuilder
             IndexBuildTimeMs = sw.Elapsed.TotalMilliseconds
         };
 
-        return new MutableHybridSearchIndex(lexicalRetriever, vectorRetriever, fuser, _embeddingProvider, docMap, stats);
+        var fieldDefinitionsCopy = new Dictionary<string, FieldDefinition>(_fieldDefinitions, StringComparer.Ordinal);
+        return new MutableHybridSearchIndex(lexicalRetriever, vectorRetriever, fuser, _embeddingProvider, docMap, stats, fieldDefinitionsCopy);
     }
 
     private async Task EnsureEmbeddingsAsync(CancellationToken ct)

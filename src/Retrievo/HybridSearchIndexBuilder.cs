@@ -16,6 +16,7 @@ public sealed class HybridSearchIndexBuilder
     private readonly List<Document> _documents = new();
     private IEmbeddingProvider? _embeddingProvider;
     private IFuser? _fuser;
+    private readonly Dictionary<string, FieldDefinition> _fieldDefinitions = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Add a single document to the index.
@@ -103,6 +104,22 @@ public sealed class HybridSearchIndexBuilder
     }
 
     /// <summary>
+    /// Declare a metadata field type. Fields not declared default to <see cref="FieldType.String"/> (exact match).
+    /// Use <see cref="FieldType.StringArray"/> for delimited multi-value fields.
+    /// </summary>
+    /// <param name="name">Metadata key this definition applies to.</param>
+    /// <param name="type">The field type that determines filter behavior.</param>
+    /// <param name="delimiter">Delimiter for <see cref="FieldType.StringArray"/> fields (default '|').</param>
+    public HybridSearchIndexBuilder DefineField(string name, FieldType type, char delimiter = '|')
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var def = new FieldDefinition { Name = name, Type = type, Delimiter = delimiter };
+        def.Validate();
+        _fieldDefinitions[name] = def;
+        return this;
+    }
+
+    /// <summary>
     /// Build the index synchronously. Documents with pre-computed embeddings are indexed directly.
     /// Documents without embeddings will have them generated if an embedding provider is configured.
     /// </summary>
@@ -156,7 +173,8 @@ public sealed class HybridSearchIndexBuilder
             IndexBuildTimeMs = sw.Elapsed.TotalMilliseconds
         };
 
-        return new HybridSearchIndex(lexicalRetriever, vectorRetriever, fuser, _embeddingProvider, docMap, stats);
+        var fieldDefinitionsCopy = new Dictionary<string, FieldDefinition>(_fieldDefinitions, StringComparer.Ordinal);
+        return new HybridSearchIndex(lexicalRetriever, vectorRetriever, fuser, _embeddingProvider, docMap, stats, fieldDefinitionsCopy);
     }
 
     /// <summary>

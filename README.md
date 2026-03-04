@@ -30,6 +30,7 @@ dotnet add package Retrievo.AzureOpenAI --prerelease
 - **Explain Mode**: Detailed score breakdown for every search result.
 - **Fielded Search**: Title and body fields with independent boost weights.
 - **Metadata Filters**: Exact-match, range, and contains filtering post-fusion.
+- **Field Definitions**: Declare field types (`String`, `StringArray`) at index time for automatic filter semantics.
 
 ### Index Management
 - **Fluent Builder**: Clean API for batch construction and folder ingestion.
@@ -63,6 +64,34 @@ var response = index.Search(new HybridQuery { Text = "neural network training", 
 
 foreach (var r in response.Results)
     Console.WriteLine($"  {r.Id}: {r.Score:F4}");
+```
+
+### Field Definitions
+
+Declare field types at index time so filters automatically use the right matching strategy:
+
+```csharp
+using var index = new HybridSearchIndexBuilder()
+    .DefineField("tags", FieldType.StringArray)         // pipe-delimited by default
+    .DefineField("categories", FieldType.StringArray, delimiter: ',')
+    .AddDocument(new Document
+    {
+        Id = "1",
+        Body = "Deep learning fundamentals",
+        Metadata = new Dictionary<string, string>
+        {
+            ["tags"] = "ml|deep-learning|neural-nets",
+            ["categories"] = "ai,education"
+        }
+    })
+    .Build();
+
+// StringArray fields auto-split and do contains-match; undeclared fields use exact-match
+var response = index.Search(new HybridQuery
+{
+    Text = "deep learning",
+    MetadataFilters = new Dictionary<string, string> { ["tags"] = "ml" }
+});
 ```
 
 ---
@@ -157,7 +186,7 @@ Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.
 | Phase | Status | Description |
 |-------|--------|-------------|
 | **Phase 1** | Done | MVP hybrid retrieval, CLI, Azure OpenAI provider |
-| **Phase 2** | Done | Mutable index, fielded search, filters (exact, range, contains), diagnostics |
+| **Phase 2** | Done | Mutable index, fielded search, filters (exact, range, contains), field definitions, diagnostics |
 | **Phase 3** | Planned | Snapshot export and import |
 | **Phase 4** | Planned | ANN support for larger corpora |
 
@@ -172,7 +201,7 @@ dotnet build
 dotnet test
 ```
 
-218 tests covering retrieval, vector math, fusion, mutable index, filters, and CLI integration — 0 warnings.
+225 tests covering retrieval, vector math, fusion, mutable index, filters, field definitions, and CLI integration — 0 warnings.
 
 ---
 

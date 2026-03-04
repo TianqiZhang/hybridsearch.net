@@ -20,8 +20,6 @@ public class HybridQueryTests
         Assert.False(query.Explain);
         Assert.Null(query.MetadataFilters);
         Assert.Null(query.MetadataRangeFilters);
-        Assert.Null(query.MetadataContainsFilters);
-        Assert.Equal('|', query.MetadataContainsDelimiter);
         Assert.Equal(0.5f, query.TitleBoost);
         Assert.Equal(1f, query.BodyBoost);
     }

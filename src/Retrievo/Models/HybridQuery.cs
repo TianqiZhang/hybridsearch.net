@@ -70,21 +70,6 @@ public sealed record HybridQuery
     public IReadOnlyList<MetadataRangeFilter>? MetadataRangeFilters { get; init; }
 
     /// <summary>
-    /// Optional contains-match metadata filters. For each key-value pair, the document's metadata value
-    /// for that key is split by the <see cref="MetadataContainsDelimiter"/> and the filter passes if any
-    /// element equals the filter value (ordinal comparison). Useful for multi-value metadata fields.
-    /// All contains filters must match (AND semantics). Null means no contains filtering.
-    /// </summary>
-    public IReadOnlyDictionary<string, string>? MetadataContainsFilters { get; init; }
-
-    /// <summary>
-    /// Delimiter character used to split metadata values for <see cref="MetadataContainsFilters"/>.
-    /// Default is '|'. For example, a metadata value "proj1|proj2|proj3" with delimiter '|'
-    /// and filter value "proj2" would match.
-    /// </summary>
-    public char MetadataContainsDelimiter { get; init; } = '|';
-
-    /// <summary>
     /// Boost multiplier for the title field during lexical search.
     /// Higher values increase the relevance of title matches. Default is 0.5,
     /// tuned via BEIR benchmark sweeps across NFCorpus and SciFact datasets.
