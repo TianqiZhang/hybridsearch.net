@@ -1,151 +1,142 @@
 # AGENTS.md — Retrievo
 
-> Knowledge base for AI agents. Read this before making changes. See README.md for project overview and build commands.
+> Knowledge base for AI agents. Read this before making changes. See README.md for project overview.
 
 ---
 
-## Workflow Rules (CRITICAL)
+## Build & Test Commands
 
-### 1. Update README on Every Change
+Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
-Whenever features, tests, project structure, or the roadmap change, always make sure `README.md` is up-to-date.
+```shell
+dotnet build                                          # Build entire solution
+dotnet test                                           # Run all 238 tests (unit + integration)
+dotnet test tests/Retrievo.Tests                      # Unit tests only
+dotnet test tests/Retrievo.IntegrationTests           # Integration tests only (CLI subprocess tests)
+dotnet test --filter "FullyQualifiedName~ClassName.MethodName"  # Run a single test
+```
 
-### 2. Code Review Before Every Commit
+**CI settings** (`Directory.Build.props`): `TreatWarningsAsErrors=true`, `Nullable=enable`, `ImplicitUsings=enable`, `LangVersion=latest`. Zero warnings required.
 
-Before committing any change, ask a **specialized code review expert agent** to review all pending changes. Do not bypass this step. 
+---
+
+## Project Structure
+
+```
+Retrievo.slnx
+├── src/
+│   ├── Retrievo/                    # Core library (NuGet: Retrievo)
+│   ├── Retrievo.AzureOpenAI/       # Azure OpenAI embedding provider (NuGet: Retrievo.AzureOpenAI)
+│   └── Retrievo.Cli/               # CLI tool (System.CommandLine)
+├── tests/
+│   ├── Retrievo.Tests/             # Unit tests (xUnit + NSubstitute)
+│   └── Retrievo.IntegrationTests/  # CLI subprocess integration tests
+├── benchmarks/Retrievo.Benchmarks/ # Performance benchmarks
+└── Directory.Build.props           # Shared build settings, version, NuGet metadata
+```
+
+Namespaces map to folders.
+
+---
+
+## Workflow Rules
+
+1. **Update README on every change** — features, tests, structure, or roadmap changes must be reflected in `README.md`.
+2. **Code review before every commit** — ask a specialized code review expert agent to review all pending changes.
+
 ---
 
 ## Coding Conventions
 
-### Namespaces
-
-Folder maps directly to namespace: `Retrievo`, `Retrievo.Abstractions`, `Retrievo.Models`, `Retrievo.Lexical`, `Retrievo.Vector`, `Retrievo.Fusion`.
-
-Use file-scoped namespace declarations: `namespace Retrievo;`
-
-### Types
+### Types & Properties
 
 | Pattern | When | Example |
 |---------|------|---------|
-| `public sealed record` | DTOs, value-like models | `HybridQuery`, `SearchResult`, `SearchResponse`, `IndexStats` |
-| `public sealed class` | Orchestrators, mutable state | `HybridSearchIndex`, `MutableHybridSearchIndex`, `Document` |
+| `public sealed record` | DTOs, value objects | `HybridQuery`, `SearchResult`, `SearchResponse` |
+| `public sealed class` | Orchestrators, mutable state | `HybridSearchIndex`, `Document` |
 | `internal` constructors | Force builder usage | `internal HybridSearchIndex(...)` |
-| `public` builders | Fluent API for construction | `HybridSearchIndexBuilder`, `MutableHybridSearchIndexBuilder` |
+| `public` builders | Fluent API | `HybridSearchIndexBuilder` |
 
-### Properties
-
-- Prefer `init`-only: `public string Name { get; init; }`
-- Use `required` for mandatory fields: `public required string Id { get; init; }`
-- Use `T?` for optional fields: `public string? Title { get; init; }`
-- Expose collections as `IReadOnlyList<T>` or `IReadOnlyDictionary<K,V>`
-- Use `float[]?` for embedding vectors
+- `init`-only properties: `public string Name { get; init; }`
+- `required` for mandatory: `public required string Id { get; init; }`
+- `T?` for optional: `public string? Title { get; init; }`
+- Collections: `IReadOnlyList<T>`, `IReadOnlyDictionary<K,V>`
+- Embeddings: `float[]?`
 
 ### Methods
 
-- Provide both sync and async: `Search` + `SearchAsync`
-- Async-first for I/O-bound operations (embedding providers)
-- Keep helpers `private` or `internal`
+- Provide sync + async: `Search()` + `SearchAsync()`
+- Async-first for I/O (embedding providers)
 - Propagate `CancellationToken` in async methods
+- Helpers are `private` or `internal`
 
-### Interfaces (Abstractions/)
+### Formatting & Imports
 
-- Small, focused — single responsibility
-- XML doc comments on all members
-- Use `IReadOnlyList<T>` and `Task<T>` in signatures
-- `IDisposable` on index types that hold resources
+- File-scoped namespaces: `namespace Retrievo;`
+- File-scoped `using` statements
+- Alias long types: `using LuceneDocument = Lucene.Net.Documents.Document;`
+- No `.editorconfig` — follow existing code style
 
 ### XML Documentation
 
 - **Required** on all public types, interfaces, and public methods
-- Use `/// <inheritdoc/>` on implementations
+- `/// <inheritdoc/>` on implementations
 - Include `<summary>`, `<param>`, `<returns>` where useful
 
-### Imports
+### Test Conventions
 
-- File-scoped `using` statements
-- Alias long external types: `using LuceneDocument = Lucene.Net.Documents.Document;`
+- **Framework**: xUnit 2.9 + NSubstitute 5.3
+- **Global using**: `<Using Include="Xunit" />` in csproj (no explicit `using Xunit;` needed)
+- **Naming**: `MethodOrFeature_Scenario_ExpectedResult` — e.g., `ContainsFilter_NoMatch_ReturnsEmpty`
+- **No traits** — tests are organized by folder/class, not `[Trait]`
+- **Test data**: `SyntheticCorpusGenerator` in `TestData/` for generating documents
+- **`[Fact]`** for single cases, **`[Theory]`** for parameterized
+- **Internals access**: `InternalsVisibleTo("Retrievo.Tests")` on core project
 
 ---
 
 ## Validation & Error Handling
 
-### Guard Clauses (DO THIS)
+### Guard Clauses
 
 ```csharp
-// Null checks — use static throw helpers
 ArgumentNullException.ThrowIfNull(query);
-ArgumentNullException.ThrowIfNull(embedding);
-
-// Disposed checks — at start of public methods
 ObjectDisposedException.ThrowIf(_disposed, this);
-
-// Numeric validation
-if (float.IsNaN(query.TitleBoost) || float.IsInfinity(query.TitleBoost) || query.TitleBoost < 0)
-    throw new ArgumentOutOfRangeException(nameof(query), "TitleBoost must be...");
-
-// Dimension validation
-if (embedding.Length != Dimensions)
-    throw new ArgumentException($"Expected {Dimensions} dimensions, got {embedding.Length}");
+if (float.IsNaN(value) || float.IsInfinity(value) || value < 0)
+    throw new ArgumentOutOfRangeException(nameof(value), "...");
 ```
 
-### Exception Types
+### Rules
 
-Use BCL exceptions only — no custom exception types in this codebase:
-- `ArgumentNullException` — null inputs
-- `ArgumentException` — invalid input values
-- `ArgumentOutOfRangeException` — out-of-range numerics
-- `InvalidOperationException` — invalid state (e.g., building with no documents)
-- `ObjectDisposedException` — using disposed objects
-- `DirectoryNotFoundException` — missing file paths
-
-### Try/Catch (Narrow Catches Only)
-
-```csharp
-// DO: Catch specific, expected exceptions
-catch (ParseException) { return Array.Empty<RankedItem>(); }
-
-// DON'T: Broad catch-all or swallowing exceptions
-catch (Exception) { }  // NEVER
-```
-
-### No Logging in Library
-
-- No `ILogger` usage in core library — exceptions and return values are the API
-- CLI uses `Console.Error.WriteLine` / `Console.WriteLine` for user-facing output only
+- **Narrow catches only**: `catch (ParseException)` — never `catch (Exception) {}`
+- **No logging in library** — exceptions and return values are the API
+- CLI uses `Console.Error.WriteLine` / `Console.WriteLine` for user output
 
 ---
 
 ## Resource Management
 
-### IDisposable Pattern
-
-- Use `_disposed` flag and guard with `ObjectDisposedException.ThrowIf`
-- Dispose all owned resources: readers, writers, directories, analyzers
-- Protect against double-dispose with flag check
-
-### Lucene Ref-Counting (Mutable Index)
-
-- `AcquireSearcherSnapshot()` calls `reader.IncRef()` — caller must release
-- `ReleaseSearcherSnapshot(reader)` calls `reader.DecRef()`
-- Snapshot swap on `Commit()` — old snapshot released, new one acquired
+- `_disposed` flag guarded by `ObjectDisposedException.ThrowIf`
+- Dispose all owned resources (Lucene readers, writers, directories, analyzers)
+- Mutable index: `AcquireSearcherSnapshot()` → `reader.IncRef()`, caller must `DecRef()`
+- Snapshot swap on `Commit()` — old released, new acquired atomically
 
 ---
 
-## Known Patterns & Anti-Patterns
+## Key Patterns
 
-### Patterns to Follow
-
-- **Builder pattern** for index construction (fluent API → internal constructor)
-- **Snapshot isolation** for mutable index (immutable snapshot swapped atomically)
-- **Deterministic tie-breaking** in RRF: `OrderByDescending(score).ThenBy(id, StringComparer.Ordinal)`
-- **Optional dependencies** via nullable: `IEmbeddingProvider?` with `if (provider is not null)` check
+- **Builder pattern** — fluent API → `internal` constructor
+- **Snapshot isolation** — mutable index swaps immutable snapshots atomically
+- **Deterministic tie-breaking**: `OrderByDescending(score).ThenBy(id, StringComparer.Ordinal)`
+- **Optional deps** via nullable: `IEmbeddingProvider?` with `if (provider is not null)`
 - **SIMD-first** vector math with scalar fallback in `VectorMath`
 
-### Anti-Patterns to Avoid
+## Anti-Patterns to Avoid
 
-| Anti-Pattern | Where It Exists | Why It's Bad |
-|---|---|---|
-| `.GetAwaiter().GetResult()` in sync APIs | Fixed in core library sync `Search()`/`Build()` paths | Do not introduce blocking async waits in synchronous APIs. Throw `InvalidOperationException` and direct callers to async alternatives when async work is required. |
-| `ex.Message.Contains("...")` | `Program.cs` (CLI) | Brittle — breaks if message text changes. Use specific exception types instead. |
-| Type suppression (`as any` / `#pragma`) | Not present | Keep it that way. `TreatWarningsAsErrors` is on. |
-| Empty catch blocks | Not present | Keep it that way. |
+| Don't | Why |
+|-------|-----|
+| `.GetAwaiter().GetResult()` | Throws `InvalidOperationException` directing to async API instead |
+| `ex.Message.Contains("...")` | Brittle — catch specific exception types |
+| `#pragma warning disable` / type suppression | `TreatWarningsAsErrors` is on; keep it clean |
+| Empty catch blocks | Never swallow exceptions |
+| `ILogger` in core library | Not used — exceptions are the API |
