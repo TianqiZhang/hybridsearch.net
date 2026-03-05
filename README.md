@@ -8,17 +8,50 @@ Retrievo is an open-source, in-process, in-memory search library for .NET that c
 
 ---
 
-## Packages
+## Quick Start
 
-| Package | Description |
-|---------|-------------|
-| [`Retrievo`](https://www.nuget.org/packages/Retrievo) | Core library — BM25 lexical search, brute-force vector search, RRF fusion, builder, mutable index. Zero external service dependencies. |
-| [`Retrievo.AzureOpenAI`](https://www.nuget.org/packages/Retrievo.AzureOpenAI) | Azure OpenAI embedding provider. Install this if you want automatic document/query embedding via Azure OpenAI. Adds a dependency on `Azure.AI.OpenAI`. |
+```csharp
+using Retrievo;
+using Retrievo.Models;
 
-```shell
-dotnet add package Retrievo --prerelease
-dotnet add package Retrievo.AzureOpenAI --prerelease  # optional, for Azure OpenAI embeddings
+var index = new HybridSearchIndexBuilder()
+    .AddDocument(new Document { Id = "1", Body = "Neural networks learn complex patterns." })
+    .AddDocument(new Document { Id = "2", Body = "Kubernetes orchestrates container deployments." })
+    .Build();
+
+using var _ = index;
+var response = index.Search(new HybridQuery { Text = "neural network training", TopK = 5 });
+
+foreach (var r in response.Results)
+    Console.WriteLine($"  {r.Id}: {r.Score:F4}");
 ```
+
+---
+
+## Benchmarks
+
+### Retrieval Quality (NDCG@10)
+
+Validated against [BEIR](https://github.com/beir-cellar/beir) with 245-configuration parameter sweeps per dataset:
+
+| Dataset | BM25 | Vector-only | **Hybrid (default)** | Hybrid (tuned) | Anserini BM25 |
+|---------|------|-------------|----------------------|----------------|---------------|
+| NFCorpus | 0.330 | 0.384 | **0.392** | 0.392 | 0.325 |
+| SciFact | 0.685 | 0.731 | **0.756** | 0.757 | 0.679 |
+
+Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.5`) tuned via cross-dataset harmonic mean optimization.
+
+### Query Latency
+
+Measured on BEIR datasets with `text-embedding-3-small` (1536-dim) embeddings:
+
+| Operation | NFCorpus (3.6k docs) | SciFact (5.2k docs) |
+|-----------|---------------------|---------------------|
+| Lexical-only (BM25) | 2.3 ms | 3.2 ms |
+| Vector-only | 1.8 ms | 2.7 ms |
+| Hybrid (BM25 + vector + RRF) | 2.2 ms | 3.3 ms |
+
+Details: [`benchmarks/`](benchmarks/)
 
 ---
 
@@ -47,24 +80,40 @@ dotnet add package Retrievo.AzureOpenAI --prerelease  # optional, for Azure Open
 
 ---
 
-## Quick Start
+## Packages
 
-Build an index and search in a few lines:
+| Package | Description |
+|---------|-------------|
+| [`Retrievo`](https://www.nuget.org/packages/Retrievo) | Core library — BM25 lexical search, brute-force vector search, RRF fusion, builder, mutable index. Zero external service dependencies. |
+| [`Retrievo.AzureOpenAI`](https://www.nuget.org/packages/Retrievo.AzureOpenAI) | Azure OpenAI embedding provider. Install this if you want automatic document/query embedding via Azure OpenAI. Adds a dependency on `Azure.AI.OpenAI`. |
+
+```shell
+dotnet add package Retrievo --prerelease
+dotnet add package Retrievo.AzureOpenAI --prerelease  # optional, for Azure OpenAI embeddings
+```
+
+---
+
+## Azure OpenAI Embeddings
+
+Plug in an embedding provider and Retrievo handles the rest — documents are embedded at build time, queries at search time.
 
 ```csharp
-using Retrievo;
-using Retrievo.Models;
+using Retrievo.AzureOpenAI;
 
-var index = new HybridSearchIndexBuilder()
-    .AddDocument(new Document { Id = "1", Body = "Neural networks learn complex patterns." })
-    .AddDocument(new Document { Id = "2", Body = "Kubernetes orchestrates container deployments." })
-    .Build();
+var provider = new AzureOpenAIEmbeddingProvider(
+    new Uri("https://your-resource.openai.azure.com/"),
+    "your-api-key",
+    "text-embedding-3-small");
 
-using var _ = index;
-var response = index.Search(new HybridQuery { Text = "neural network training", TopK = 5 });
+// Documents are auto-embedded during build
+using var index = await new HybridSearchIndexBuilder()
+    .AddFolder("./docs")  // loads *.md and *.txt recursively
+    .WithEmbeddingProvider(provider)
+    .BuildAsync();
 
-foreach (var r in response.Results)
-    Console.WriteLine($"  {r.Id}: {r.Score:F4}");
+// Query text is automatically converted to a vector
+var response = await index.SearchAsync(new HybridQuery { Text = "how to deploy", TopK = 5 });
 ```
 
 ### Field Definitions
@@ -93,30 +142,6 @@ var response = index.Search(new HybridQuery
     Text = "deep learning",
     MetadataFilters = new Dictionary<string, string> { ["tags"] = "ml" }
 });
-```
-
----
-
-## Azure OpenAI Embeddings
-
-Plug in an embedding provider and Retrievo handles the rest — documents are embedded at build time, queries at search time.
-
-```csharp
-using Retrievo.AzureOpenAI;
-
-var provider = new AzureOpenAIEmbeddingProvider(
-    new Uri("https://your-resource.openai.azure.com/"),
-    "your-api-key",
-    "text-embedding-3-small");
-
-// Documents are auto-embedded during build
-using var index = await new HybridSearchIndexBuilder()
-    .AddFolder("./docs")  // loads *.md and *.txt recursively
-    .WithEmbeddingProvider(provider)
-    .BuildAsync();
-
-// Query text is automatically converted to a vector
-var response = await index.SearchAsync(new HybridQuery { Text = "how to deploy", TopK = 5 });
 ```
 
 ---
@@ -156,51 +181,6 @@ HybridQuery
 
 ---
 
-## Benchmarks
-
-### Retrieval Quality (NDCG@10)
-
-Validated against [BEIR](https://github.com/beir-cellar/beir) with 245-configuration parameter sweeps per dataset:
-
-| Dataset | BM25 | Vector-only | **Hybrid (default)** | Hybrid (tuned) | Anserini BM25 |
-|---------|------|-------------|----------------------|----------------|---------------|
-| NFCorpus | 0.330 | 0.384 | **0.392** | 0.392 | 0.325 |
-| SciFact | 0.685 | 0.731 | **0.756** | 0.757 | 0.679 |
-
-Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.5`) tuned via cross-dataset harmonic mean optimization.
-
-### Query Latency
-
-Measured on BEIR datasets with `text-embedding-3-small` (1536-dim) embeddings:
-
-| Operation | NFCorpus (3.6k docs) | SciFact (5.2k docs) |
-|-----------|---------------------|---------------------|
-| Lexical-only (BM25) | 2.3 ms | 3.2 ms |
-| Vector-only | 1.8 ms | 2.7 ms |
-| Hybrid (BM25 + vector + RRF) | 2.2 ms | 3.3 ms |
-
-### Performance Micro-Benchmarks
-
-Hot-path profiling with [BenchmarkDotNet](https://benchmarkdotnet.org/) (.NET 8.0, X64 RyuJIT AVX-512, 384-dim vectors unless noted):
-
-| Hot Path | Speedup | Technique | Applied |
-|----------|---------|-----------|---------|
-| Top-K selection (n=5000, k=10) | **33×** | Min-heap partial sort O(n log k) | ✅ |
-| Vector validation (768-dim) | **11×** | `TensorPrimitives.Dot` NaN/Inf propagation | ✅ |
-| L2 norm (384-dim) | **8×** | `TensorPrimitives.Norm` | ✅ |
-| Contains filter (10 fields) | **4.6×** | Zero-alloc `Span<char>` scanning | ✅ |
-| Metadata lookup (10 fields) | **1.6×** | `FrozenDictionary<K,V>` | Deferred |
-| RRF accumulation (1000 docs) | **1.5×** | `CollectionsMarshal.GetValueRefOrAddDefault` | ✅ |
-| Dot product (384-dim) | **1.2×** | `TensorPrimitives.Dot` | ✅ |
-
-Cosine similarity benchmark (30×) is not listed because vectors are pre-normalized at insert time, so search already computes cosine via a simple dot product.
-
-Run benchmarks: `dotnet run --project benchmarks/Retrievo.PerfBenchmarks -c Release -- --filter "*"`
-
-Source: [`benchmarks/Retrievo.PerfBenchmarks/`](benchmarks/Retrievo.PerfBenchmarks/)
-
----
-
 ## Roadmap
 
 | Phase | Status | Description |
@@ -234,7 +214,6 @@ dotnet test
 - **Workaround for non-English corpora**: Use vector-only search by omitting lexical configuration, or configure a custom analyzer for your language in a fork.
 
 ---
-
 
 ## License
 

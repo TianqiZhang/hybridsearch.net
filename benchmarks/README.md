@@ -156,3 +156,25 @@ The benchmark parses standard BEIR files (`corpus.jsonl`, `queries.jsonl`, `qrel
 - **Recall@100** — fraction of relevant documents retrieved in top 100
 
 Each dataset is evaluated in up to three modes: lexical-only (BM25), vector-only (cosine similarity), and hybrid (RRF fusion). Vector and hybrid modes require pre-computed embeddings.
+
+---
+
+## Performance Micro-Benchmarks
+
+Hot-path profiling with [BenchmarkDotNet](https://benchmarkdotnet.org/) (.NET 8.0, X64 RyuJIT AVX-512, 384-dim vectors unless noted):
+
+| Hot Path | Speedup | Technique | Applied |
+|----------|---------|-----------|---------|
+| Top-K selection (n=5000, k=10) | **33×** | Min-heap partial sort O(n log k) | ✅ |
+| Vector validation (768-dim) | **11×** | `TensorPrimitives.Dot` NaN/Inf propagation | ✅ |
+| L2 norm (384-dim) | **8×** | `TensorPrimitives.Norm` | ✅ |
+| Contains filter (10 fields) | **4.6×** | Zero-alloc `Span<char>` scanning | ✅ |
+| Metadata lookup (10 fields) | **1.6×** | `FrozenDictionary<K,V>` | Deferred |
+| RRF accumulation (1000 docs) | **1.5×** | `CollectionsMarshal.GetValueRefOrAddDefault` | ✅ |
+| Dot product (384-dim) | **1.2×** | `TensorPrimitives.Dot` | ✅ |
+
+Cosine similarity benchmark (30×) is not listed because vectors are pre-normalized at insert time, so search already computes cosine via a simple dot product.
+
+Run micro-benchmarks: `dotnet run --project benchmarks/Retrievo.PerfBenchmarks -c Release -- --filter "*"`
+
+Source: [`Retrievo.PerfBenchmarks/`](Retrievo.PerfBenchmarks/)
