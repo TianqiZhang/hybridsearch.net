@@ -71,10 +71,10 @@ Biomedical IR — 3,633 PubMed articles, 323 test queries, graded relevance (0/1
 
 | Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
 |---------------|---------|--------|------------|-----------|
-| Lexical-only (BM25) | 0.325 | 0.239 | 0.250 | 2.6ms |
-| Vector-only | 0.384 | 0.291 | 0.360 | 7.3ms |
-| Hybrid (default weights) | 0.392 | 0.293 | 0.368 | 8.0ms |
-| **Hybrid (tuned)** | **0.392** | 0.295 | 0.362 | 8.0ms |
+| Lexical-only (BM25) | 0.330 | 0.242 | 0.247 | 2.3ms |
+| Vector-only | 0.384 | 0.291 | 0.360 | 1.8ms |
+| Hybrid (default weights) | 0.392 | 0.293 | 0.369 | 2.2ms |
+| **Hybrid (tuned)** | **0.392** | 0.295 | 0.362 | 2.2ms |
 | BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
 
 Best NFCorpus config: `LexicalWeight=0.3, VectorWeight=0.5, RrfK=1, TitleBoost=0.5`
@@ -85,11 +85,11 @@ Scientific claim verification — 5,183 abstracts, 300 test queries, binary rele
 
 | Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
 |---------------|---------|--------|------------|-----------|
-| Lexical-only (BM25) | 0.665 | 0.617 | 0.908 | 2.9ms |
-| Lexical-only (BM25, TitleBoost=0.5) | 0.685 | 0.639 | 0.922 | 2.9ms |
-| Vector-only | 0.731 | 0.687 | 0.973 | 8.5ms |
-| Hybrid (default weights) | 0.756 | 0.709 | 0.983 | 10.3ms |
-| **Hybrid (tuned)** | **0.757** | 0.709 | 0.983 | 10.3ms |
+| Lexical-only (BM25) | 0.685 | 0.639 | 0.922 | 3.2ms |
+| Lexical-only (BM25, TitleBoost=0.5) | 0.685 | 0.639 | 0.922 | 3.2ms |
+| Vector-only | 0.731 | 0.687 | 0.973 | 2.7ms |
+| Hybrid (default weights) | 0.756 | 0.710 | 0.987 | 3.3ms |
+| **Hybrid (tuned)** | **0.757** | 0.709 | 0.983 | 3.3ms |
 | BEIR BM25 baseline (Anserini MF) | 0.679 | — | — | — |
 
 Best SciFact config: `LexicalWeight=1.0, VectorWeight=1.5, RrfK=20, TitleBoost=0.5`

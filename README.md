@@ -164,21 +164,20 @@ Validated against [BEIR](https://github.com/beir-cellar/beir) with 245-configura
 
 | Dataset | BM25 | Vector-only | **Hybrid (default)** | Hybrid (tuned) | Anserini BM25 |
 |---------|------|-------------|----------------------|----------------|---------------|
-| NFCorpus | 0.325 | 0.384 | **0.392** | 0.392 | 0.325 |
-| SciFact | 0.665 | 0.731 | **0.756** | 0.757 | 0.679 |
+| NFCorpus | 0.330 | 0.384 | **0.392** | 0.392 | 0.325 |
+| SciFact | 0.685 | 0.731 | **0.756** | 0.757 | 0.679 |
 
 Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.5`) tuned via cross-dataset harmonic mean optimization.
 
 ### Query Latency
 
-3,000 documents × 768-dimensional embeddings (`text-embedding-3-small`):
+Measured on BEIR datasets with `text-embedding-3-small` (1536-dim) embeddings:
 
-| Operation | Latency |
-|-----------|---------|
-| Vector-only query | < 5 ms |
-| Lexical-only query | < 5 ms |
-| Hybrid query (BM25 + vector + RRF) | < 10 ms |
-| Index build (3k docs) | < 2 s |
+| Operation | NFCorpus (3.6k docs) | SciFact (5.2k docs) |
+|-----------|---------------------|---------------------|
+| Lexical-only (BM25) | 2.3 ms | 3.2 ms |
+| Vector-only | 1.8 ms | 2.7 ms |
+| Hybrid (BM25 + vector + RRF) | 2.2 ms | 3.3 ms |
 
 ### Performance Micro-Benchmarks
 
