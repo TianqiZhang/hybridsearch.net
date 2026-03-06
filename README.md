@@ -69,6 +69,7 @@ Details: [`benchmarks/`](benchmarks/)
 ### Index Management
 - **Fluent Builder**: Clean API for batch construction and folder ingestion.
 - **Mutable Index**: Incremental upserts and deletes with thread-safe commits.
+- **Unique Document IDs**: Builders reject duplicate document IDs within a single build.
 - **Zero Infrastructure**: Runs entirely in-process with no external dependencies.
 - **Auto-Embedding**: Transparently embed documents at index time.
 

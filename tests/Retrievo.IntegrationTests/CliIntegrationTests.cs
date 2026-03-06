@@ -9,7 +9,7 @@ namespace Retrievo.IntegrationTests;
 public class CliIntegrationTests : IDisposable
 {
     private readonly string _testDocsFolder;
-    private readonly string _cliProjectPath;
+    private readonly string _cliDllPath;
 
     public CliIntegrationTests()
     {
@@ -29,10 +29,10 @@ public class CliIntegrationTests : IDisposable
             "# Security Best Practices\nEncryption protects sensitive data at rest and in transit. " +
             "Authentication verifies user identity with credentials.");
 
-        // Resolve CLI project path relative to test assembly
+        // Resolve CLI output path relative to test assembly
         var assemblyDir = Path.GetDirectoryName(typeof(CliIntegrationTests).Assembly.Location)!;
         // Navigate from tests/Retrievo.IntegrationTests/bin/Debug/net8.0 up to repo root
-        _cliProjectPath = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", "..", "src", "Retrievo.Cli", "Retrievo.Cli.csproj"));
+        _cliDllPath = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", "..", "src", "Retrievo.Cli", "bin", "Debug", "net8.0", "Retrievo.Cli.dll"));
     }
 
     /// <summary>
@@ -112,7 +112,7 @@ public class CliIntegrationTests : IDisposable
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --project \"{_cliProjectPath}\" --no-build -- {arguments}",
+            Arguments = $"\"{_cliDllPath}\" {arguments}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
