@@ -327,15 +327,15 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
     /// <param name="embeddingProvider">
     /// Optional embedding provider used only for future query embedding and async upserts. Stored document embeddings come from the snapshot.
     /// </param>
-    /// <param name="ct">Cancellation token.</param>
     /// <param name="fuser">
     /// Optional fuser override. Required when importing a snapshot created with a custom <see cref="IFuser"/>.
     /// </param>
+    /// <param name="ct">Cancellation token.</param>
     public static async Task<MutableHybridSearchIndex> ImportSnapshotAsync(
         string path,
         IEmbeddingProvider? embeddingProvider = null,
-        CancellationToken ct = default,
-        IFuser? fuser = null)
+        IFuser? fuser = null,
+        CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
@@ -347,7 +347,7 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
             bufferSize: 4096,
             useAsync: true);
 
-        return await ImportSnapshotAsync(stream, embeddingProvider, ct, fuser).ConfigureAwait(false);
+        return await ImportSnapshotAsync(stream, embeddingProvider, fuser, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -387,15 +387,15 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
     /// <param name="embeddingProvider">
     /// Optional embedding provider used only for future query embedding and async upserts. Stored document embeddings come from the snapshot.
     /// </param>
-    /// <param name="ct">Cancellation token.</param>
     /// <param name="fuser">
     /// Optional fuser override. Required when importing a snapshot created with a custom <see cref="IFuser"/>.
     /// </param>
+    /// <param name="ct">Cancellation token.</param>
     public static async Task<MutableHybridSearchIndex> ImportSnapshotAsync(
         Stream stream,
         IEmbeddingProvider? embeddingProvider = null,
-        CancellationToken ct = default,
-        IFuser? fuser = null)
+        IFuser? fuser = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
 

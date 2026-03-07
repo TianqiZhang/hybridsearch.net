@@ -33,7 +33,7 @@ var explainOption = new Option<bool>(
 var embeddingProviderOption = new Option<string?>(
     name: "--embedding-provider",
     description: "Embedding provider to use. Supported: 'azure-openai'. " +
-                 "If not specified, uses snapshot embeddings when available and otherwise operates in lexical-only mode.");
+                 "If not specified, text queries operate in lexical-only mode even when a snapshot contains stored embeddings.");
 
 var outputOption = new Option<FileInfo>(
     name: "--output",
@@ -83,6 +83,15 @@ queryCommand.SetHandler(async (InvocationContext context) =>
         embeddingProvider = TryAutoDetectProvider();
     }
 
+    if (input is DirectoryInfo)
+    {
+        Console.Error.WriteLine($"Indexing files from: {input.FullName}");
+    }
+    else
+    {
+        Console.Error.WriteLine($"Loading snapshot from: {input.FullName}");
+    }
+
     HybridSearchIndex index;
     try
     {
@@ -128,18 +137,11 @@ queryCommand.SetHandler(async (InvocationContext context) =>
     using (index)
     {
         var stats = index.GetStats();
-        if (input is DirectoryInfo)
+        if (embeddingProvider is null)
         {
-            Console.Error.WriteLine($"Indexing files from: {input.FullName}");
-        }
-        else
-        {
-            Console.Error.WriteLine($"Loading snapshot from: {input.FullName}");
-        }
-
-        if (embeddingProvider is null && !stats.EmbeddingDimension.HasValue)
-        {
-            Console.Error.WriteLine("Warning: No embedding provider configured. Operating in lexical-only mode.");
+            Console.Error.WriteLine("Warning: No embedding provider configured. Text queries will run in lexical-only mode.");
+            Console.Error.WriteLine("  Stored document embeddings can still be loaded from snapshots, but query vectors");
+            Console.Error.WriteLine("  will not be generated unless you configure an embedding provider.");
             Console.Error.WriteLine("  Set RETRIEVO_AZURE_OPENAI_ENDPOINT, RETRIEVO_AZURE_OPENAI_KEY, and");
             Console.Error.WriteLine("  RETRIEVO_AZURE_OPENAI_DEPLOYMENT environment variables, or use");
             Console.Error.WriteLine("  --embedding-provider azure-openai.");
@@ -343,7 +345,7 @@ static async Task<HybridSearchIndex> LoadIndexAsync(
 
     if (input is FileInfo file)
     {
-        return await HybridSearchIndex.ImportSnapshotAsync(file.FullName, embeddingProvider, ct);
+        return await HybridSearchIndex.ImportSnapshotAsync(file.FullName, embeddingProvider, ct: ct);
     }
 
     throw new InvalidOperationException($"Unsupported input type: {input.GetType().Name}");

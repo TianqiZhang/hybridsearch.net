@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Retrievo.Models;
 
 namespace Retrievo.IntegrationTests;
 
@@ -143,6 +144,44 @@ public class CliIntegrationTests : IDisposable
         Assert.Contains("Found", queryStdout);
         Assert.Contains("machine-learning.md", queryStdout);
         Assert.Contains("Loading snapshot from", queryStderr);
+    }
+
+    /// <summary>
+    /// Snapshot queries without an embedding provider warn that text queries run in lexical-only mode,
+    /// even when the snapshot contains stored document embeddings.
+    /// </summary>
+    [Fact]
+    public async Task CliQuery_SnapshotWithoutEmbeddingProvider_ShowsLexicalOnlyWarning()
+    {
+        var snapshotPath = Path.Combine(_testDocsFolder, "snapshot-with-embeddings.retrievo.json");
+
+        using (var index = new HybridSearchIndexBuilder()
+            .AddDocument(new Document
+            {
+                Id = "doc-1",
+                Title = "Vector Search",
+                Body = "Neural retrieval uses embeddings to compare semantic similarity.",
+                Embedding = new float[] { 1f, 0f }
+            })
+            .AddDocument(new Document
+            {
+                Id = "doc-2",
+                Title = "Lexical Search",
+                Body = "Keyword search relies on BM25 lexical ranking.",
+                Embedding = new float[] { 0f, 1f }
+            })
+            .Build())
+        {
+            index.ExportSnapshot(snapshotPath);
+        }
+
+        var (exitCode, _, stderr) = await RunCliAsync(
+            $"query \"{snapshotPath}\" --text \"semantic similarity\"");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Loading snapshot from", stderr);
+        Assert.Contains("Text queries will run in lexical-only mode", stderr);
+        Assert.Contains("Stored document embeddings can still be loaded from snapshots", stderr);
     }
 
     /// <summary>

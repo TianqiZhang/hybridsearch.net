@@ -160,12 +160,15 @@ using var index = await new HybridSearchIndexBuilder()
 
 await index.ExportSnapshotAsync("./docs.retrievo.json");
 
-using var restored = await HybridSearchIndex.ImportSnapshotAsync("./docs.retrievo.json");
-var response = restored.Search(new HybridQuery { Text = "how to deploy", TopK = 5 });
+using var restored = await HybridSearchIndex.ImportSnapshotAsync(
+    "./docs.retrievo.json",
+    embeddingProvider: provider);
+var response = await restored.SearchAsync(new HybridQuery { Text = "how to deploy", TopK = 5 });
 ```
 
 Mutable indexes export the last committed snapshot only. Call `Commit()` before exporting pending changes.
 Snapshots persist the live normalized vector state, so round-tripped vector rankings stay identical.
+Stored document embeddings survive snapshot export/import, but text queries still need an embedding provider at import time if you want vector or hybrid retrieval after restore.
 
 Built-in `RrfFuser` snapshots import directly. If you use a custom `IFuser`, supply the same fuser again during import so ranking semantics are preserved:
 
