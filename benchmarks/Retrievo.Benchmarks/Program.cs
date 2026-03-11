@@ -110,7 +110,7 @@ static void RunStandard(
     bool hasVectorBenchmarks)
 {
     var configs = CreateStandardConfigs(hasVectorBenchmarks);
-    var results = RunConfigs(runner, configs);
+    var results = RunConfigs(runner, configs, warmupPasses: 1, measuredPasses: 3, rotateOrderBetweenPasses: true);
     PrintResults(datasetId, corpusCount, queryCount, results);
 }
 
@@ -227,20 +227,63 @@ static async Task<int> RunSnapshotRoundTripVerificationAsync(
 static List<EvaluationResult> RunConfigs(
     EvaluationRunner runner,
     IReadOnlyList<EvaluationConfig> configs,
-    bool showProgress = false)
+    bool showProgress = false,
+    int warmupPasses = 0,
+    int measuredPasses = 1,
+    bool rotateOrderBetweenPasses = false)
 {
     ArgumentNullException.ThrowIfNull(runner);
     ArgumentNullException.ThrowIfNull(configs);
+    ArgumentOutOfRangeException.ThrowIfNegative(warmupPasses);
+    ArgumentOutOfRangeException.ThrowIfLessThan(measuredPasses, 1);
+
+    var timer = showProgress ? Stopwatch.StartNew() : null;
+    int progressTotal = configs.Count * measuredPasses;
+    int progressCount = 0;
+
+    for (var pass = 0; pass < warmupPasses; pass++)
+    {
+        foreach (var configIndex in GetConfigOrder(configs.Count, pass, rotateOrderBetweenPasses))
+            _ = runner.Run(configs[configIndex]);
+    }
+
+    var names = new string[configs.Count];
+    var ndcgTotals = new double[configs.Count];
+    var mapTotals = new double[configs.Count];
+    var recallTotals = new double[configs.Count];
+    var queryTimeTotals = new double[configs.Count];
+    var totalTimeTotals = new double[configs.Count];
+
+    for (var pass = 0; pass < measuredPasses; pass++)
+    {
+        foreach (var configIndex in GetConfigOrder(configs.Count, pass, rotateOrderBetweenPasses))
+        {
+            var result = runner.Run(configs[configIndex]);
+            names[configIndex] = result.Name;
+            ndcgTotals[configIndex] += result.NdcgAt10;
+            mapTotals[configIndex] += result.MapAt10;
+            recallTotals[configIndex] += result.RecallAt100;
+            queryTimeTotals[configIndex] += result.AvgQueryTimeMs;
+            totalTimeTotals[configIndex] += result.TotalTimeMs;
+            progressCount++;
+
+            if (showProgress && (progressCount % 50 == 0 || progressCount == progressTotal))
+                Console.Error.WriteLine($"  [{progressCount}/{progressTotal}] {timer!.Elapsed.TotalSeconds:F1}s");
+        }
+    }
 
     var results = new List<EvaluationResult>(configs.Count);
-    var timer = showProgress ? Stopwatch.StartNew() : null;
-
     for (var i = 0; i < configs.Count; i++)
     {
-        results.Add(runner.Run(configs[i]));
-
-        if (showProgress && ((i + 1) % 50 == 0 || i + 1 == configs.Count))
-            Console.Error.WriteLine($"  [{i + 1}/{configs.Count}] {timer!.Elapsed.TotalSeconds:F1}s");
+        results.Add(new EvaluationResult
+        {
+            Name = names[i],
+            NdcgAt10 = ndcgTotals[i] / measuredPasses,
+            MapAt10 = mapTotals[i] / measuredPasses,
+            RecallAt100 = recallTotals[i] / measuredPasses,
+            AvgQueryTimeMs = queryTimeTotals[i] / measuredPasses,
+            TotalTimeMs = totalTimeTotals[i] / measuredPasses
+        });
     }
 
     return results;
@@ -268,6 +311,16 @@ static List<EvaluationRun> RunDetailedConfigs(
     }
 
     return runs;
+}
+
+static IEnumerable<int> GetConfigOrder(int count, int pass, bool rotateOrderBetweenPasses)
+{
+    if (count <= 0)
+        yield break;
+
+    int start = rotateOrderBetweenPasses ? pass % count : 0;
+    for (var step = 0; step < count; step++)
+        yield return (start + step) % count;
 }
 
 static SnapshotMismatch? CompareIndexStats(IndexStats original, IndexStats restored)

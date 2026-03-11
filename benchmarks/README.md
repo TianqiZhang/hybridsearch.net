@@ -59,6 +59,8 @@ Use `--verify-snapshot-roundtrip` to prove snapshot export/import preserves retr
 
 Query latency is reported for the original and restored indexes, but it is informational only and not treated as a failure condition.
 
+Standard benchmark latency figures use one warmup pass plus three measured passes with rotated configuration order to reduce cache and execution-order bias between lexical, vector, and hybrid modes.
+
 ```bash
 # Standard benchmark parity check
 dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset nfcorpus --embeddings benchmarks/fixtures/embeddings/nfcorpus.text-embedding-3-small.cache --verify-snapshot-roundtrip
@@ -95,10 +97,10 @@ Biomedical IR — 3,633 PubMed articles, 323 test queries, graded relevance (0/1
 
 | Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
 |---------------|---------|--------|------------|-----------|
-| Lexical-only (BM25) | 0.330 | 0.242 | 0.247 | 2.3ms |
-| Vector-only | 0.384 | 0.291 | 0.360 | 1.8ms |
-| Hybrid (default weights) | 0.392 | 0.293 | 0.369 | 2.2ms |
-| **Hybrid (tuned)** | **0.392** | 0.295 | 0.362 | 2.2ms |
+| Lexical-only (BM25) | 0.330 | 0.242 | 0.247 | 0.1ms |
+| Vector-only | 0.384 | 0.291 | 0.360 | 1.0ms |
+| Hybrid (default weights) | 0.391 | 0.293 | 0.369 | 1.1ms |
+| **Hybrid (tuned)** | **0.392** | 0.293 | 0.368 | 1.1ms |
 | BEIR BM25 baseline (Anserini) | 0.325 | — | — | — |
 
 Best NFCorpus config: `LexicalWeight=0.3, VectorWeight=0.5, RrfK=1, TitleBoost=0.5`
@@ -109,11 +111,11 @@ Scientific claim verification — 5,183 abstracts, 300 test queries, binary rele
 
 | Configuration | nDCG@10 | MAP@10 | Recall@100 | Avg Query |
 |---------------|---------|--------|------------|-----------|
-| Lexical-only (BM25) | 0.685 | 0.639 | 0.922 | 3.2ms |
-| Lexical-only (BM25, TitleBoost=0.5) | 0.685 | 0.639 | 0.922 | 3.2ms |
-| Vector-only | 0.731 | 0.687 | 0.973 | 2.7ms |
-| Hybrid (default weights) | 0.756 | 0.710 | 0.987 | 3.3ms |
-| **Hybrid (tuned)** | **0.757** | 0.709 | 0.983 | 3.3ms |
+| Lexical-only (BM25) | 0.685 | 0.639 | 0.922 | 0.2ms |
+| Lexical-only (BM25, TitleBoost=0.5) | 0.685 | 0.639 | 0.922 | 0.2ms |
+| Vector-only | 0.731 | 0.687 | 0.973 | 1.4ms |
+| Hybrid (default weights) | 0.756 | 0.710 | 0.987 | 1.6ms |
+| **Hybrid (tuned)** | **0.757** | 0.709 | 0.983 | 1.6ms |
 | BEIR BM25 baseline (Anserini MF) | 0.679 | — | — | — |
 
 Best SciFact config: `LexicalWeight=1.0, VectorWeight=1.5, RrfK=20, TitleBoost=0.5`
@@ -141,13 +143,13 @@ dotnet run --project benchmarks/Retrievo.Benchmarks -- --dataset scifact --sweep
 
 #### Cross-Dataset Findings
 
-1. **TitleBoost=0.5 is universally better** — Top configs on both datasets use TitleBoost=0.5. On SciFact lexical-only, lowering TitleBoost from 1.0 to 0.5 improves nDCG@10 by +0.020 (0.665 → 0.685).
+1. **TitleBoost=0.5 is universally better** — Top configs on both datasets use TitleBoost=0.5. On SciFact lexical-only, lowering TitleBoost from 1.0 to 0.5 improves nDCG@10 by +0.021 (0.665 → 0.685).
 
 2. **RrfK=60 (paper default) is suboptimal** — NFCorpus prefers k=1 (sharp top-rank emphasis), SciFact prefers k=20. The original RRF paper's k=60 is consistently outperformed.
 
 3. **Vector retrieval dominates** — Both datasets benefit from higher vector weight relative to lexical weight. Pure equal weights (L=1, V=1) underperform tuned ratios.
 
-4. **Top configs are tightly clustered** — The top ~20 configs on each dataset are within 0.002-0.003 nDCG@10 of the best, indicating robustness to exact parameter choices within the optimal region.
+4. **Top configs are tightly clustered** — On NFCorpus, the top 20 configs are within about 0.002 nDCG@10 of the best. On SciFact, the top 5 are within about 0.001 and the top 20 stay within about 0.005.
 
 #### Balanced Default Config
 
@@ -155,9 +157,9 @@ Cross-dataset harmonic mean optimization across both sweep datasets identified `
 
 | Config | NFCorpus nDCG@10 | SciFact nDCG@10 | Harmonic Mean |
 |--------|-----------------|-----------------|---------------|
-| **L=0.5 V=1.0 k=20 tb=0.5** | **0.392** | **0.756** | **0.516** |
+| **L=0.5 V=1.0 k=20 tb=0.5** | **0.391** | **0.756** | **0.516** |
 | L=0.3 V=0.5 k=1 tb=0.5 | 0.392 | 0.754 | 0.516 |
-| L=0.3 V=1.0 k=20 tb=0.5 | 0.391 | 0.757 | 0.516 |
+| L=0.3 V=1.0 k=20 tb=0.5 | 0.391 | 0.757 | 0.515 |
 | L=0.5 V=1.5 k=20 tb=0.5 | 0.391 | 0.756 | 0.515 |
 | L=0.1 V=0.3 k=20 tb=0.5 | 0.391 | 0.756 | 0.515 |
 
@@ -185,26 +187,20 @@ Each dataset is evaluated in up to three modes: lexical-only (BM25), vector-only
 
 ## Performance Micro-Benchmarks
 
-Historical hot-path profiling with [BenchmarkDotNet](https://benchmarkdotnet.org/) (.NET 8.0, X64 RyuJIT AVX-512, 384-dim vectors unless noted):
+Current hot-path profiling with [BenchmarkDotNet](https://benchmarkdotnet.org/) (.NET 8.0, Apple M4, Arm64 RyuJIT AdvSIMD; 384-dim vectors unless noted):
 
 | Hot Path | Speedup | Technique | Applied |
 |----------|---------|-----------|---------|
 | Mutable vector snapshot search (5k docs, 384 dims, topK=10) | **2.1×** faster, **35×** less allocation | Shared min-heap partial sort O(n log k) | ✅ |
-| RRF top-K extraction (n=5000, k=10) | **6.2×** faster, **269×** less allocation | Bounded min-heap extraction O(n log k) | ✅ |
-| Vector validation (768-dim) | **11×** | `TensorPrimitives.Dot` NaN/Inf propagation | ✅ |
-| Contains filter (10 fields) | **4.6×** | Zero-alloc `Span<char>` scanning | ✅ |
-| Metadata lookup (10 fields) | **1.6×** | `FrozenDictionary<K,V>` | Deferred |
-| RRF accumulation (1000 docs) | **1.5×** | `CollectionsMarshal.GetValueRefOrAddDefault` | ✅ |
+| RRF top-K extraction (n=5000, k=10) | **6.1×** faster, **279×** less allocation | Bounded min-heap extraction O(n log k) | ✅ |
+| Vector validation (768-dim) | **5.6×** | `TensorPrimitives.Dot` NaN/Inf propagation | ✅ |
+| Contains filter (10 fields, 5 elements) | **3.7×** | Manual `Span<char>` scanning | ✅ |
+| Metadata lookup (10 fields) | **1.7×** | `FrozenDictionary<K,V>` | Deferred |
+| RRF accumulation (1000 docs) | **1.7×** | `CollectionsMarshal.GetValueRefOrAddDefault` | ✅ |
 
 Cosine similarity benchmark (30×) is not listed because vectors are pre-normalized at insert time, so search already computes cosine via a simple dot product.
 
-After the deterministic accumulation change for snapshot-stable rankings, the vector-math paths were re-measured against the actual production `VectorMath` implementation on Apple M4 / Arm64 RyuJIT AdvSIMD:
-
-| Hot Path | Current Mean | Relative Result | Notes |
-|----------|--------------|-----------------|-------|
-| Dot product (384-dim) | **562 ns** | **1.7×** faster than scalar, **3.6×** faster than `TensorPrimitives.Dot` on this machine | Deterministic SIMD accumulation with scalar tail |
-| L2 norm (384-dim) | **459 ns** | **4.5×** faster than `TensorPrimitives.Norm`; about **1.2×** slower than the old non-deterministic SIMD helper | Deterministic sum-of-squares accumulation |
-| Vector normalization (384-dim) | **1.78 us** | Roughly on par with scalar, **1.6×** faster than the `TensorPrimitives.Norm` variant | Scalar rescale dominates once norm computation gets cheaper |
+The latest Apple M4 rerun showed that the sub-microsecond `VectorMathBenchmarks` cases are too noisy under the current `InvocationCount=1` setup to publish stable absolute means. Keep using the generated report directionally, and re-run on your target hardware after increasing work per invocation if you need publishable absolute figures.
 
 Re-run the micro-benchmarks on your target deployment hardware before making startup or throughput promises from these figures.
 

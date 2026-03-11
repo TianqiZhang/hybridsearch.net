@@ -36,7 +36,7 @@ Validated against [BEIR](https://github.com/beir-cellar/beir) with 245-configura
 
 | Dataset | BM25 | Vector-only | **Hybrid (default)** | Hybrid (tuned) | Anserini BM25 |
 |---------|------|-------------|----------------------|----------------|---------------|
-| NFCorpus | 0.330 | 0.384 | **0.392** | 0.392 | 0.325 |
+| NFCorpus | 0.330 | 0.384 | **0.391** | 0.392 | 0.325 |
 | SciFact | 0.685 | 0.731 | **0.756** | 0.757 | 0.679 |
 
 Default parameters (`LexicalWeight=0.5, VectorWeight=1.0, RrfK=20, TitleBoost=0.5`) tuned via cross-dataset harmonic mean optimization.
@@ -47,9 +47,9 @@ Measured on BEIR datasets with `text-embedding-3-small` (1536-dim) embeddings:
 
 | Operation | NFCorpus (3.6k docs) | SciFact (5.2k docs) |
 |-----------|---------------------|---------------------|
-| Lexical-only (BM25) | 2.3 ms | 3.2 ms |
-| Vector-only | 1.8 ms | 2.7 ms |
-| Hybrid (BM25 + vector + RRF) | 2.2 ms | 3.3 ms |
+| Lexical-only (BM25) | 0.1 ms | 0.2 ms |
+| Vector-only | 1.0 ms | 1.4 ms |
+| Hybrid (BM25 + vector + RRF) | 1.1 ms | 1.6 ms |
 
 Details: [`benchmarks/`](benchmarks/)
 The benchmark harness can also export a temporary snapshot, re-import it, and assert identical ranked outputs per query with `--verify-snapshot-roundtrip`.
