@@ -174,6 +174,28 @@ public class RrfFuserTests
     }
 
     [Fact]
+    public void LargerCorpus_TopKMatchesReferenceFullSort()
+    {
+        var rankedLists = new (IReadOnlyList<RankedItem>, float, string)[]
+        {
+            (BuildRankedList(docCount: 40, multiplier: 7, offset: 0), 0.4f, "lexical"),
+            (BuildRankedList(docCount: 40, multiplier: 11, offset: 3), 1.0f, "vector"),
+            (BuildRankedList(docCount: 40, multiplier: 13, offset: 5), 0.7f, "semantic")
+        };
+
+        var expected = FuseReference(rankedLists, rrfK: 20, topK: 12);
+        var actual = _fuser.Fuse(rankedLists, rrfK: 20, topK: 12, explain: true);
+
+        Assert.Equal(expected.Count, actual.Count);
+        for (int i = 0; i < expected.Count; i++)
+        {
+            Assert.Equal(expected[i].Id, actual[i].Id);
+            Assert.Equal(expected[i].Score, actual[i].Score, precision: 12);
+            Assert.NotNull(actual[i].Explain);
+        }
+    }
+
+    [Fact]
     public void TopK_LargerThanCorpus_ReturnsAll()
     {
         var items = new[]
@@ -317,5 +339,51 @@ public class RrfFuserTests
         Assert.Single(results);
         Assert.Equal("only", results[0].Id);
         Assert.Equal(1.0 / 61, results[0].Score, precision: 10);
+    }
+
+    private static RankedItem[] BuildRankedList(int docCount, int multiplier, int offset)
+    {
+        return Enumerable.Range(0, docCount)
+            .Select(rank =>
+            {
+                int id = ((rank * multiplier) + offset) % docCount;
+                return new RankedItem
+                {
+                    Id = $"doc-{id:D2}",
+                    Score = docCount - rank,
+                    Rank = rank + 1
+                };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<SearchResult> FuseReference(
+        IReadOnlyList<(IReadOnlyList<RankedItem> Items, float Weight, string ListName)> rankedLists,
+        int rrfK,
+        int topK)
+    {
+        var scores = new Dictionary<string, double>(StringComparer.Ordinal);
+
+        foreach (var (items, weight, _) in rankedLists)
+        {
+            foreach (var item in items)
+            {
+                double contribution = weight * (1.0 / (rrfK + item.Rank));
+                scores[item.Id] = scores.TryGetValue(item.Id, out double existing)
+                    ? existing + contribution
+                    : contribution;
+            }
+        }
+
+        return scores
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key, StringComparer.Ordinal)
+            .Take(topK)
+            .Select(kvp => new SearchResult
+            {
+                Id = kvp.Key,
+                Score = kvp.Value
+            })
+            .ToArray();
     }
 }

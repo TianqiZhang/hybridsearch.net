@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Retrievo.Abstractions;
 using Retrievo.Models;
 using Retrievo.Tests.TestData;
+using Retrievo.Vector;
 using NSubstitute;
 
 namespace Retrievo.Tests;
@@ -213,6 +214,54 @@ public class MutableHybridSearchIndexTests
 
         Assert.Single(response.Results);
         Assert.Equal("doc-1", response.Results[0].Id);
+    }
+
+    [Fact]
+    public void VectorSearch_TopKMatchesReferenceFullSort()
+    {
+        var docs = new[]
+        {
+            new Document { Id = "doc-b", Body = "tie candidate b", Embedding = new float[] { 1f, 0f, 0f } },
+            new Document { Id = "doc-a", Body = "tie candidate a", Embedding = new float[] { 1f, 0f, 0f } },
+            new Document { Id = "doc-c", Body = "near match", Embedding = new float[] { 0.8f, 0.6f, 0f } },
+            new Document { Id = "doc-d", Body = "orthogonal", Embedding = new float[] { 0f, 1f, 0f } },
+            new Document { Id = "doc-e", Body = "opposite", Embedding = new float[] { -1f, 0f, 0f } }
+        };
+
+        using var index = new MutableHybridSearchIndexBuilder()
+            .AddDocuments(docs)
+            .Build();
+
+        var response = index.Search(new HybridQuery
+        {
+            Vector = new float[] { 1f, 0f, 0f },
+            TopK = 4
+        });
+
+        var expectedIds = ComputeExpectedVectorOrder(docs, new float[] { 1f, 0f, 0f }, topK: 4);
+
+        Assert.Equal(expectedIds, response.Results.Select(result => result.Id).ToArray());
+    }
+
+    [Fact]
+    public void VectorSearch_NonFiniteQuery_Throws()
+    {
+        using var index = new MutableHybridSearchIndexBuilder()
+            .AddDocument(new Document
+            {
+                Id = "doc-1",
+                Body = "Some text content.",
+                Embedding = new float[] { 1f, 0f, 0f }
+            })
+            .Build();
+
+        var ex = Assert.Throws<ArgumentException>(() => index.Search(new HybridQuery
+        {
+            Vector = new float[] { float.NaN, 0f, 0f },
+            TopK = 5
+        }));
+
+        Assert.Equal("queryVector", ex.ParamName);
     }
 
     [Fact]
@@ -490,5 +539,25 @@ public class MutableHybridSearchIndexTests
         using var index = new MutableHybridSearchIndexBuilder().Build();
 
         Assert.Throws<ArgumentNullException>(() => index.Delete(null!));
+    }
+
+    private static string[] ComputeExpectedVectorOrder(
+        IReadOnlyList<Document> docs,
+        float[] queryVector,
+        int topK)
+    {
+        var normalizedQuery = VectorMath.Normalize(queryVector);
+
+        return docs
+            .Select(doc => new
+            {
+                Id = doc.Id,
+                Score = VectorMath.DotProduct(normalizedQuery, VectorMath.Normalize(doc.Embedding!))
+            })
+            .OrderByDescending(result => result.Score)
+            .ThenBy(result => result.Id, StringComparer.Ordinal)
+            .Take(topK)
+            .Select(result => result.Id)
+            .ToArray();
     }
 }

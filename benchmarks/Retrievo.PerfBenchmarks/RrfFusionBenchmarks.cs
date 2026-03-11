@@ -15,6 +15,9 @@ namespace Retrievo.PerfBenchmarks;
 [ShortRunJob]
 public class RrfFusionBenchmarks
 {
+    private static readonly Comparer<KeyValuePair<string, double>> DescendingComparer =
+        Comparer<KeyValuePair<string, double>>.Create(CompareDescending);
+
     private List<(string Id, int Rank)>[] _rankedLists = null!;
     private Dictionary<string, double> _preAccumulatedScores = null!;
 
@@ -151,12 +154,7 @@ public class RrfFusionBenchmarks
         }
 
         // Sort final heap for deterministic output
-        Array.Sort(heap, 0, heapSize, Comparer<KeyValuePair<string, double>>.Create(
-            (a, b) =>
-            {
-                int cmp = b.Value.CompareTo(a.Value);
-                return cmp != 0 ? cmp : string.Compare(a.Key, b.Key, StringComparison.Ordinal);
-            }));
+        Array.Sort(heap, 0, heapSize, DescendingComparer);
 
         return new List<KeyValuePair<string, double>>(heap.AsSpan(0, heapSize).ToArray());
     }

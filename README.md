@@ -77,7 +77,8 @@ Micro-benchmark timings are hardware-dependent; the current vector math measurem
 - **Auto-Embedding**: Transparently embed documents at index time.
 
 ### Developer Experience
-- **Deterministic Vector Math**: Memory-layout-independent cosine scoring with SIMD-aware accumulation and min-heap top-K selection.
+- **Shared Deterministic Ranking Paths**: Immutable and mutable vector search share the same bounded heap selector, and RRF fusion uses the same deterministic top-K tie-breaking strategy.
+- **Deterministic Vector Math**: Memory-layout-independent cosine scoring with SIMD-aware accumulation and bounded top-K selection.
 - **Query Diagnostics**: Detailed timing breakdown for every pipeline stage.
 - **Pluggable Providers**: Easy integration with any embedding model or API.
 - **CLI Tool**: Powerful terminal interface for indexing and querying.
@@ -248,7 +249,7 @@ dotnet build
 dotnet test
 ```
 
-259 tests covering retrieval, vector math, fusion, mutable index, snapshot persistence, filters, field definitions, cancellation, and CLI integration — 0 warnings.
+263 tests covering retrieval, vector math, fusion, mutable index, snapshot persistence, filters, field definitions, cancellation, and CLI integration — 0 warnings.
 CLI integration tests build the CLI project and execute the matching built artifact for the active configuration/TFM, so `dotnet test tests/Retrievo.IntegrationTests` works from a clean checkout.
 
 ## Known Limitations

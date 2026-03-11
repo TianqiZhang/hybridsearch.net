@@ -518,45 +518,7 @@ public sealed class MutableHybridSearchIndex : IMutableHybridSearchIndex
     private static IReadOnlyList<RankedItem> SearchVectorSnapshot(
         float[] queryVector, int topK, IReadOnlyList<(string Id, float[] NormalizedEmbedding)> entries, CancellationToken ct)
     {
-        if (entries.Count == 0)
-            return Array.Empty<RankedItem>();
-
-        var normalizedQuery = VectorMath.Normalize(queryVector);
-
-        ct.ThrowIfCancellationRequested();
-
-        var scored = new (string Id, float Similarity)[entries.Count];
-        for (int i = 0; i < entries.Count; i++)
-        {
-            if ((i & 0xFF) == 0) // every 256 iterations
-                ct.ThrowIfCancellationRequested();
-
-            var (id, embedding) = entries[i];
-            float sim = VectorMath.DotProduct(normalizedQuery, embedding);
-            scored[i] = (id, sim);
-        }
-
-        ct.ThrowIfCancellationRequested();
-
-        Array.Sort(scored, (a, b) =>
-        {
-            int cmp = b.Similarity.CompareTo(a.Similarity);
-            return cmp != 0 ? cmp : string.Compare(a.Id, b.Id, StringComparison.Ordinal);
-        });
-
-        int resultCount = Math.Min(topK, scored.Length);
-        var results = new RankedItem[resultCount];
-        for (int i = 0; i < resultCount; i++)
-        {
-            results[i] = new RankedItem
-            {
-                Id = scored[i].Id,
-                Score = scored[i].Similarity,
-                Rank = i + 1
-            };
-        }
-
-        return results;
+        return VectorEntrySearcher.Search(queryVector, topK, entries, ct);
     }
 
     private SearchSnapshot CreateSnapshot(IndexStats stats)

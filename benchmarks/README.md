@@ -189,7 +189,8 @@ Historical hot-path profiling with [BenchmarkDotNet](https://benchmarkdotnet.org
 
 | Hot Path | Speedup | Technique | Applied |
 |----------|---------|-----------|---------|
-| Top-K selection (n=5000, k=10) | **33×** | Min-heap partial sort O(n log k) | ✅ |
+| Mutable vector snapshot search (5k docs, 384 dims, topK=10) | **2.1×** faster, **35×** less allocation | Shared min-heap partial sort O(n log k) | ✅ |
+| RRF top-K extraction (n=5000, k=10) | **6.2×** faster, **269×** less allocation | Bounded min-heap extraction O(n log k) | ✅ |
 | Vector validation (768-dim) | **11×** | `TensorPrimitives.Dot` NaN/Inf propagation | ✅ |
 | Contains filter (10 fields) | **4.6×** | Zero-alloc `Span<char>` scanning | ✅ |
 | Metadata lookup (10 fields) | **1.6×** | `FrozenDictionary<K,V>` | Deferred |
@@ -208,5 +209,12 @@ After the deterministic accumulation change for snapshot-stable rankings, the ve
 Re-run the micro-benchmarks on your target deployment hardware before making startup or throughput promises from these figures.
 
 Run micro-benchmarks: `dotnet run --project benchmarks/Retrievo.PerfBenchmarks -c Release -- --filter "*"`
+
+Targeted runs for the changed hot paths:
+
+```bash
+dotnet run --project benchmarks/Retrievo.PerfBenchmarks -c Release -- --filter "*RrfFusionBenchmarks*"
+dotnet run --project benchmarks/Retrievo.PerfBenchmarks -c Release -- --filter "*MutableVectorSearchBenchmarks*"
+```
 
 Source: [`Retrievo.PerfBenchmarks/`](Retrievo.PerfBenchmarks/)

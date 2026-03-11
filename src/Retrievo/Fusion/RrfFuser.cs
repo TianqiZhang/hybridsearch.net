@@ -13,6 +13,9 @@ namespace Retrievo.Fusion;
 /// </summary>
 public sealed class RrfFuser : IFuser
 {
+    private static readonly Comparer<KeyValuePair<string, double>> DescendingComparer =
+        Comparer<KeyValuePair<string, double>>.Create(CompareDescending);
+
     /// <inheritdoc/>
     public IReadOnlyList<SearchResult> Fuse(
         IReadOnlyList<(IReadOnlyList<RankedItem> Items, float Weight, string ListName)> rankedLists,
@@ -20,13 +23,13 @@ public sealed class RrfFuser : IFuser
         int topK,
         bool explain)
     {
-        if (rankedLists.Count == 0)
+        if (rankedLists.Count == 0 || topK <= 0)
             return Array.Empty<SearchResult>();
 
-        // Accumulate scores and track per-list ranks for explain
-        var scores = new Dictionary<string, double>(StringComparer.Ordinal);
+        int scoreCapacity = EstimateScoreCapacity(rankedLists);
+        var scores = new Dictionary<string, double>(scoreCapacity, StringComparer.Ordinal);
         var explainData = explain
-            ? new Dictionary<string, Dictionary<string, (int Rank, double Contribution)>>(StringComparer.Ordinal)
+            ? new Dictionary<string, Dictionary<string, (int Rank, double Contribution)>>(scoreCapacity, StringComparer.Ordinal)
             : null;
 
         for (int listIdx = 0; listIdx < rankedLists.Count; listIdx++)
@@ -46,66 +49,147 @@ public sealed class RrfFuser : IFuser
                 {
                     if (!explainData.TryGetValue(item.Id, out var listContributions))
                     {
-                        listContributions = new Dictionary<string, (int, double)>(StringComparer.Ordinal);
+                        listContributions = new Dictionary<string, (int, double)>(rankedLists.Count, StringComparer.Ordinal);
                         explainData[item.Id] = listContributions;
                     }
+
                     listContributions[listName] = (rank, contribution);
                 }
             }
         }
 
-        // Sort by descending score, then ordinal ascending ID for deterministic tie-breaking
-        var sorted = scores
-            .OrderByDescending(kvp => kvp.Value)
-            .ThenBy(kvp => kvp.Key, StringComparer.Ordinal)
-            .Take(topK)
-            .ToList();
+        return SelectTopResults(scores, explainData, topK);
+    }
 
-        var results = new List<SearchResult>(sorted.Count);
+    private static IReadOnlyList<SearchResult> SelectTopResults(
+        Dictionary<string, double> scores,
+        Dictionary<string, Dictionary<string, (int Rank, double Contribution)>>? explainData,
+        int topK)
+    {
+        int k = Math.Min(topK, scores.Count);
+        if (k == 0)
+            return Array.Empty<SearchResult>();
 
-        foreach (var (id, score) in sorted)
+        var heap = new KeyValuePair<string, double>[k];
+        int heapSize = 0;
+
+        foreach (var score in scores)
         {
-            ExplainDetails? explainDetails = null;
-
-            if (explainData is not null)
+            if (heapSize < k)
             {
-                int? lexicalRank = null;
-                int? vectorRank = null;
-                double lexicalContribution = 0.0;
-                double vectorContribution = 0.0;
-
-                if (explainData.TryGetValue(id, out var contributions))
-                {
-                    if (contributions.TryGetValue("lexical", out var lexInfo))
-                    {
-                        lexicalRank = lexInfo.Rank;
-                        lexicalContribution = lexInfo.Contribution;
-                    }
-                    if (contributions.TryGetValue("vector", out var vecInfo))
-                    {
-                        vectorRank = vecInfo.Rank;
-                        vectorContribution = vecInfo.Contribution;
-                    }
-                }
-
-                explainDetails = new ExplainDetails
-                {
-                    LexicalRank = lexicalRank,
-                    VectorRank = vectorRank,
-                    LexicalContribution = lexicalContribution,
-                    VectorContribution = vectorContribution,
-                    FusedScore = score
-                };
+                heap[heapSize] = score;
+                heapSize++;
+                if (heapSize == k)
+                    BuildMinHeap(heap, k);
             }
-
-            results.Add(new SearchResult
+            else if (CompareDescending(score, heap[0]) < 0)
             {
-                Id = id,
-                Score = score,
-                Explain = explainDetails
-            });
+                heap[0] = score;
+                SiftDown(heap, 0, k);
+            }
         }
 
+        Array.Sort(heap, 0, heapSize, DescendingComparer);
+
+        var results = new List<SearchResult>(heapSize);
+        for (int i = 0; i < heapSize; i++)
+            results.Add(CreateResult(heap[i], explainData));
+
         return results;
+    }
+
+    private static SearchResult CreateResult(
+        KeyValuePair<string, double> score,
+        Dictionary<string, Dictionary<string, (int Rank, double Contribution)>>? explainData)
+    {
+        ExplainDetails? explainDetails = null;
+
+        if (explainData is not null)
+        {
+            int? lexicalRank = null;
+            int? vectorRank = null;
+            double lexicalContribution = 0.0;
+            double vectorContribution = 0.0;
+
+            if (explainData.TryGetValue(score.Key, out var contributions))
+            {
+                if (contributions.TryGetValue("lexical", out var lexInfo))
+                {
+                    lexicalRank = lexInfo.Rank;
+                    lexicalContribution = lexInfo.Contribution;
+                }
+
+                if (contributions.TryGetValue("vector", out var vecInfo))
+                {
+                    vectorRank = vecInfo.Rank;
+                    vectorContribution = vecInfo.Contribution;
+                }
+            }
+
+            explainDetails = new ExplainDetails
+            {
+                LexicalRank = lexicalRank,
+                VectorRank = vectorRank,
+                LexicalContribution = lexicalContribution,
+                VectorContribution = vectorContribution,
+                FusedScore = score.Value
+            };
+        }
+
+        return new SearchResult
+        {
+            Id = score.Key,
+            Score = score.Value,
+            Explain = explainDetails
+        };
+    }
+
+    private static int EstimateScoreCapacity(
+        IReadOnlyList<(IReadOnlyList<RankedItem> Items, float Weight, string ListName)> rankedLists)
+    {
+        int totalItems = 0;
+        for (int i = 0; i < rankedLists.Count; i++)
+            totalItems += rankedLists[i].Items.Count;
+
+        return totalItems;
+    }
+
+    private static int CompareDescending(KeyValuePair<string, double> a, KeyValuePair<string, double> b)
+    {
+        int cmp = b.Value.CompareTo(a.Value);
+        return cmp != 0 ? cmp : string.Compare(a.Key, b.Key, StringComparison.Ordinal);
+    }
+
+    private static int CompareAscending(KeyValuePair<string, double> a, KeyValuePair<string, double> b)
+    {
+        int cmp = a.Value.CompareTo(b.Value);
+        return cmp != 0 ? cmp : string.Compare(b.Key, a.Key, StringComparison.Ordinal);
+    }
+
+    private static void BuildMinHeap(KeyValuePair<string, double>[] heap, int size)
+    {
+        for (int i = size / 2 - 1; i >= 0; i--)
+            SiftDown(heap, i, size);
+    }
+
+    private static void SiftDown(KeyValuePair<string, double>[] heap, int index, int size)
+    {
+        while (true)
+        {
+            int left = (2 * index) + 1;
+            int right = (2 * index) + 2;
+            int smallest = index;
+
+            if (left < size && CompareAscending(heap[left], heap[smallest]) < 0)
+                smallest = left;
+            if (right < size && CompareAscending(heap[right], heap[smallest]) < 0)
+                smallest = right;
+
+            if (smallest == index)
+                break;
+
+            (heap[index], heap[smallest]) = (heap[smallest], heap[index]);
+            index = smallest;
+        }
     }
 }

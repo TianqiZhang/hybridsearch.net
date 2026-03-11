@@ -1,4 +1,3 @@
-using System.Numerics.Tensors;
 using Retrievo.Abstractions;
 using Retrievo.Models;
 
@@ -12,19 +11,6 @@ namespace Retrievo.Vector;
 public sealed class BruteForceVectorRetriever : IVectorRetriever
 {
     private readonly List<(string Id, float[] NormalizedEmbedding)> _entries = new();
-
-    /// <summary>
-    /// Validates that a vector contains only finite values (no NaN or Infinity).
-    /// Uses SIMD-accelerated dot-self to propagate NaN/Infinity in O(1) checks.
-    /// </summary>
-    private static void ValidateFiniteValues(float[] embedding, string paramName)
-    {
-        // Dot(v, v) propagates NaN and produces Infinity for Infinity inputs.
-        // A single float.IsFinite check covers all elements.
-        float dotSelf = TensorPrimitives.Dot(embedding, embedding);
-        if (!float.IsFinite(dotSelf))
-            throw new ArgumentException("Vector contains non-finite values (NaN or Infinity).", paramName);
-    }
 
     /// <summary>
     /// Get a snapshot copy of all entries for use in snapshot-based search.
@@ -55,7 +41,7 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         if (embedding.Length == 0)
             throw new ArgumentException("Embedding must not be empty.", nameof(embedding));
 
-        ValidateFiniteValues(embedding, nameof(embedding));
+        VectorEntrySearcher.ValidateFiniteValues(embedding, nameof(embedding));
 
         if (Dimensions == 0)
             Dimensions = embedding.Length;
@@ -79,7 +65,7 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         if (normalizedEmbedding.Length == 0)
             throw new ArgumentException("Embedding must not be empty.", nameof(normalizedEmbedding));
 
-        ValidateFiniteValues(normalizedEmbedding, nameof(normalizedEmbedding));
+        VectorEntrySearcher.ValidateFiniteValues(normalizedEmbedding, nameof(normalizedEmbedding));
 
         if (Dimensions == 0)
             Dimensions = normalizedEmbedding.Length;
@@ -103,7 +89,7 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
         if (embedding.Length == 0)
             throw new ArgumentException("Embedding must not be empty.", nameof(embedding));
 
-        ValidateFiniteValues(embedding, nameof(embedding));
+        VectorEntrySearcher.ValidateFiniteValues(embedding, nameof(embedding));
 
         if (Dimensions == 0)
             Dimensions = embedding.Length;
@@ -158,117 +144,6 @@ public sealed class BruteForceVectorRetriever : IVectorRetriever
     {
         ArgumentNullException.ThrowIfNull(vector);
 
-        ValidateFiniteValues(vector, nameof(vector));
-
-        if (_entries.Count == 0)
-            return Array.Empty<RankedItem>();
-
-        if (vector.Length != Dimensions)
-            throw new ArgumentException(
-                $"Query vector dimension mismatch: expected {Dimensions}, got {vector.Length}.", nameof(vector));
-
-        var normalizedQuery = VectorMath.Normalize(vector);
-
-        // Min-heap top-K selection: O(n log k) instead of O(n log n) full sort
-        ct.ThrowIfCancellationRequested();
-
-        int k = Math.Min(topK, _entries.Count);
-        var heap = new (string Id, float Similarity)[k];
-        int heapSize = 0;
-
-        for (int i = 0; i < _entries.Count; i++)
-        {
-            if ((i & 0xFF) == 0) // every 256 iterations
-                ct.ThrowIfCancellationRequested();
-
-            var (id, embedding) = _entries[i];
-            float sim = VectorMath.DotProduct(normalizedQuery, embedding);
-            var item = (id, sim);
-
-            if (heapSize < k)
-            {
-                heap[heapSize] = item;
-                heapSize++;
-                if (heapSize == k)
-                    BuildMinHeap(heap, k);
-            }
-            else if (CompareDescending(item, heap[0]) < 0)
-            {
-                // item is better (higher similarity) than heap minimum
-                heap[0] = item;
-                SiftDown(heap, 0, k);
-            }
-        }
-
-        ct.ThrowIfCancellationRequested();
-
-        // Sort the final heap for deterministic output order
-        Array.Sort(heap, 0, heapSize, Comparer<(string Id, float Similarity)>.Create(
-            (a, b) =>
-            {
-                int cmp = b.Similarity.CompareTo(a.Similarity);
-                return cmp != 0 ? cmp : string.Compare(a.Id, b.Id, StringComparison.Ordinal);
-            }));
-
-        var results = new RankedItem[heapSize];
-        for (int i = 0; i < heapSize; i++)
-        {
-            results[i] = new RankedItem
-            {
-                Id = heap[i].Id,
-                Score = heap[i].Similarity,
-                Rank = i + 1 // 1-based
-            };
-        }
-
-        return results;
-    }
-
-    // ── Min-heap helpers (ascending by similarity = min-heap for "keep largest K") ──
-
-    /// <summary>
-    /// Compare for descending similarity order.
-    /// Returns negative if a should come BEFORE b in descending order (a has higher similarity).
-    /// </summary>
-    private static int CompareDescending((string Id, float Similarity) a, (string Id, float Similarity) b)
-    {
-        int cmp = b.Similarity.CompareTo(a.Similarity);
-        return cmp != 0 ? cmp : string.Compare(a.Id, b.Id, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Compare for ascending similarity order (used as min-heap comparator).
-    /// </summary>
-    private static int CompareAscending((string Id, float Similarity) a, (string Id, float Similarity) b)
-    {
-        int cmp = a.Similarity.CompareTo(b.Similarity);
-        return cmp != 0 ? cmp : string.Compare(b.Id, a.Id, StringComparison.Ordinal);
-    }
-
-    private static void BuildMinHeap((string Id, float Similarity)[] heap, int size)
-    {
-        for (int i = size / 2 - 1; i >= 0; i--)
-            SiftDown(heap, i, size);
-    }
-
-    private static void SiftDown((string Id, float Similarity)[] heap, int i, int size)
-    {
-        while (true)
-        {
-            int left = 2 * i + 1;
-            int right = 2 * i + 2;
-            int smallest = i;
-
-            if (left < size && CompareAscending(heap[left], heap[smallest]) < 0)
-                smallest = left;
-            if (right < size && CompareAscending(heap[right], heap[smallest]) < 0)
-                smallest = right;
-
-            if (smallest == i)
-                break;
-
-            (heap[i], heap[smallest]) = (heap[smallest], heap[i]);
-            i = smallest;
-        }
+        return VectorEntrySearcher.Search(vector, topK, _entries, ct);
     }
 }
